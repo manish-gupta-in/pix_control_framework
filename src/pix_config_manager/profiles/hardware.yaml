@@ -1,0 +1,17 @@
+# Hardware Profile — conservative safe limits for real vehicle deployment
+safety:
+  max_steer_angle:  280.0    # deg  — limited for safety
+  max_steer_rate:   150.0    # deg/s — slow, safe rate
+  max_speed:          3.0    # m/s  — 10.8 km/h max
+  max_accel:          1.0    # m/s^2 — gentle acceleration
+  watchdog_timeout:   0.3    # s  — strict heartbeat
+
+controller:
+  lane_following:
+    gain_lateral:    0.005   # conservative gain
+    target_speed:     1.5    # m/s — slow
+    lookahead_m:      2.5    # m
+
+can:
+  can_interface:     can4    # real CAN interface
+  loop_rate:          50.0   # Hz

@@ -1,0 +1,8 @@
+pix_logger:
+  ros__parameters:
+    log_dir: "~/pix_logs"
+    flush_interval: 5.0
+    log_vehicle_status: true
+    log_control_cmd: true
+    log_raw_cmd: true
+    log_system_state: true

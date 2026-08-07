@@ -1,0 +1,10 @@
+std_msgs/Header header
+float64 steering_angle
+float64 speed
+float64 acceleration
+float64 brake_pressure
+uint8 gear
+bool enable_steering
+bool enable_throttle
+bool enable_brake
+bool e_stop

@@ -1,0 +1,8 @@
+/**:
+  ros__parameters:
+
+    # ── Arbitration Timeout ──────────────────────────────────────────────────
+    # If an algorithm has not published in this many seconds, it is considered
+    # inactive and the next lower priority source is selected.
+    # Must be larger than the publishing period of algorithms (20ms = 0.02s).
+    active_timeout: 0.4             # seconds

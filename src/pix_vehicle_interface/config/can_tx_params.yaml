@@ -1,0 +1,20 @@
+/**:
+  ros__parameters:
+
+    # ── CAN Interface ────────────────────────────────────────────────────────
+    # SocketCAN interface name. Verify with: ip link show | grep can
+    # Common values: can4 (shuttle), can0 (bench test), vcan0 (virtual CAN)
+    can_interface: "can4"
+
+    # DBC file path. Leave empty to auto-resolve from package share directory.
+    # Override for testing with a local DBC copy:
+    # dbc_file: "/home/bits/Desktop/Manish/Custom_Interface_study/hook2_AD (1).dbc"
+    dbc_file: ""
+
+    # ── Control Loop Rate ────────────────────────────────────────────────────
+    # Must match the VCU's expected command rate. PIX VCU expects 50Hz commands.
+    loop_rate: 50.0                 # Hz
+
+    # ── Enable Flags ─────────────────────────────────────────────────────────
+    # Set to false for dry-run / bench testing without physical CAN hardware.
+    enable_can_tx: true

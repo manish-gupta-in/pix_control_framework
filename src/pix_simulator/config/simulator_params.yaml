@@ -1,0 +1,15 @@
+/**:
+  ros__parameters:
+
+    # ── Kinematic Model ──────────────────────────────────────────────────────
+    wheelbase: 2.0                  # meters (rear-to-front axle)
+    max_steer_limit: 500.0          # VCU steering angle range (deg, symmetric)
+
+    # ── Braking & Friction ───────────────────────────────────────────────────
+    max_brake_decel: 4.0            # m/s^2 at 100% brake pedal
+    friction_decel: 0.5             # m/s^2 passive friction when no command
+
+    # ── Steering Ratio ───────────────────────────────────────────────────────
+    # Ratio of steering wheel angle to actual front wheel angle.
+    # Used only inside the simulator for kinematic integration.
+    steering_ratio: 15.0

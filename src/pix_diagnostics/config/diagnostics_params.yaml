@@ -1,0 +1,10 @@
+pix_diagnostics:
+  ros__parameters:
+    publish_rate:       2.0    # Hz
+    can_rx_timeout:     0.5    # s
+    can_tx_timeout:     0.5    # s
+    wdog_timeout:       1.0    # s
+    battery_warn_v:    46.0    # V
+    battery_error_v:   42.0    # V
+    battery_warn_soc:  20.0    # %
+    battery_error_soc: 10.0    # %

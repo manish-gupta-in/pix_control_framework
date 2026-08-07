@@ -1,0 +1,7 @@
+# pix_state_manager — configuration
+state_manager:
+  ros__parameters:
+    publish_rate: 10.0          # Hz — how often to publish system state
+    algorithm_timeout: 0.5      # seconds — algorithm considered inactive after this
+    fault_clear_delay: 2.0      # seconds — wait before transitioning FAULT -> STANDBY
+    dbw_detect_timeout: 1.0     # seconds — timeout for DBW engage detection

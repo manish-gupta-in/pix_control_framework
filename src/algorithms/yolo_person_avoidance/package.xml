@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>yolo_person_avoidance</name>
+  <version>1.0.0</version>
+  <description>Vision-based lateral person avoidance algorithm using YOLOv8</description>
+  <maintainer email="bits@todo.todo">bits</maintainer>
+  <license>Apache-2.0</license>
+
+  <depend>rclpy</depend>
+  <depend>sensor_msgs</depend>
+  <depend>cv_bridge</depend>
+  <depend>pix_vehicle_msgs</depend>
+  <depend>pix_algorithm_api</depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

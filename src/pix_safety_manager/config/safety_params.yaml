@@ -1,0 +1,24 @@
+/**:
+  ros__parameters:
+
+    # ── Steering Safety Envelope ─────────────────────────────────────────────
+    # Maximum steering angle the safety layer will allow (degrees).
+    # Hardware physical limit is 500 deg. Keep below to prevent chassis strain.
+    max_steer_angle: 350.0          # deg  (hardware limit: 500)
+
+    # Maximum steering rate of change per second. Prevents sharp jerks.
+    # PIX recommendation: <= 200 deg/s. Conservative: 150.
+    max_steer_rate: 150.0           # deg/s
+
+    # ── Longitudinal Safety Envelope ─────────────────────────────────────────
+    # Maximum vehicle speed permitted by the safety manager.
+    # Campus deployment: 5.0 m/s (18 km/h). Open road: up to 8.0 m/s.
+    max_speed: 5.0                  # m/s
+
+    # Maximum commanded acceleration. Prevents wheel slip / passenger comfort issues.
+    max_accel: 2.0                  # m/s^2
+
+    # ── Watchdog Timeout ─────────────────────────────────────────────────────
+    # If no raw_control_cmd is received for this many seconds, trigger E-Stop.
+    # Should be > arbitration timer period (20ms). Conservative: 300ms.
+    watchdog_timeout: 0.3           # seconds

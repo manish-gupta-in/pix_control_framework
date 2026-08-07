@@ -1,0 +1,17 @@
+# Simulation Profile — relaxed limits for algorithm development
+safety:
+  max_steer_angle:  350.0    # deg  — full range for sim
+  max_steer_rate:   300.0    # deg/s — fast for testing
+  max_speed:          5.0    # m/s
+  max_accel:          3.0    # m/s^2
+  watchdog_timeout:   0.6    # s
+
+controller:
+  lane_following:
+    gain_lateral:    0.008   # proportional gain on lateral error
+    target_speed:     2.0    # m/s
+    lookahead_m:      3.0    # m
+
+can:
+  can_interface:    vcan0    # virtual CAN for simulation
+  loop_rate:         50.0    # Hz

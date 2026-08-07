@@ -1,0 +1,8 @@
+/**:
+  ros__parameters:
+
+    # ── CAN Interface ────────────────────────────────────────────────────────
+    can_interface: "can4"
+    dbc_file: ""                    # Empty = auto-resolve from package share
+    loop_rate: 50.0                 # Hz
+    enable_can_rx: true

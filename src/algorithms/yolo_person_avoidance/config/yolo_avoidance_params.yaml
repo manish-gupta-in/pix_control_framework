@@ -1,0 +1,45 @@
+/**:
+  ros__parameters:
+
+    # ── YOLO Model ───────────────────────────────────────────────────────────
+    # YOLOv8 model weights file. Will be downloaded automatically on first run.
+    # Options: yolov8n.pt (fastest), yolov8s.pt, yolov8m.pt (most accurate)
+    yolo_model: "yolov8n.pt"
+
+    # Detection confidence threshold (0.0-1.0). Lower = more detections (more false positives).
+    # Tune up if corridor environment causes too many false triggers.
+    confidence_threshold: 0.40
+
+    # ── Steering Avoidance Controller ────────────────────────────────────────
+    # Gain: scales normalized screen offset (0..1) to steering degrees.
+    # E.g., gain=300 means a person centered at screen edge → 300 deg steer cmd.
+    gain: 300.0                     # deg / normalized_offset
+
+    # Maximum avoidance steering angle commanded (VCU range: 0..500 deg).
+    # PIX steering wheel angle. 500 = full lock. Safe avoidance: 400-500.
+    max_avoidance: 500.0            # deg
+
+    # Deadband: fractional screen width within which no avoidance is triggered.
+    # 0.08 = person within 8% of screen center is ignored.
+    deadband: 0.08                  # fraction [0..1]
+
+    # ── Ramp and Hold Parameters ─────────────────────────────────────────────
+    # Steering ramp rate: maximum change in command per second.
+    # Prevents sudden jerks when a person appears or disappears.
+    ramp_rate: 200.0                # deg/s
+
+    # How many frames to hold the last avoidance command after a person disappears.
+    # At 30fps camera, 15 frames = 0.5 seconds hold.
+    hold_frames: 15                 # frames
+
+    # ── Drive Parameters ─────────────────────────────────────────────────────
+    # Steering speed sent to VCU (deg/s). PIX max: 250.
+    speed_dps: 250.0                # deg/s
+
+    # Longitudinal speed while avoidance is active (m/s).
+    # Reduce for tighter corridors. 2.0 m/s ≈ slow walking pace.
+    target_speed: 2.0               # m/s
+
+    # ── Display ──────────────────────────────────────────────────────────────
+    # Set to false to enable OpenCV debug window (requires display).
+    no_display: true

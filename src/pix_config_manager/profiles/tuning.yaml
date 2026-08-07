@@ -1,0 +1,17 @@
+# Tuning Profile — intermediate settings for field testing
+safety:
+  max_steer_angle:  300.0    # deg
+  max_steer_rate:   200.0    # deg/s
+  max_speed:          2.0    # m/s — safe for tuning
+  max_accel:          1.5    # m/s^2
+  watchdog_timeout:   0.4    # s
+
+controller:
+  lane_following:
+    gain_lateral:    0.006   # tunable
+    target_speed:     1.5    # m/s
+    lookahead_m:      3.0    # m
+
+can:
+  can_interface:     can4
+  loop_rate:          50.0
