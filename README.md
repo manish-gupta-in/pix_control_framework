@@ -21,7 +21,7 @@ PIX Control Framework provides a clean, scalable, modular architecture where aut
 ```bash
 mkdir -p pcf_ws/src
 cd pcf_ws/src
-git clone https://github.com/manish/pix_control_framework.git
+git clone https://github.com/manish-gupta-in/pix_control_framework.git
 cd ..
 colcon build --symlink-install
 ```

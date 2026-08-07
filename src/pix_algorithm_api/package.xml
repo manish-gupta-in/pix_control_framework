@@ -4,7 +4,7 @@
   <name>pix_algorithm_api</name>
   <version>0.1.0</version>
   <description>Algorithm API for PCF</description>
-  <maintainer email="contact@example.com">Manish Gupta</maintainer>
+  <maintainer email="manish.gupta@example.com">Manish Gupta</maintainer>
   <license>Apache-2.0</license>
   <buildtool_depend>ament_cmake</buildtool_depend>
   <depend>rclcpp</depend>
