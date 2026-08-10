@@ -2,16 +2,16 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>pix_vehicle_interface</name>
-  <version>0.1.0</version>
-  <description>Vehicle Interface for PIX Control Framework</description>
-  <maintainer email="manish.gupta@example.com">Manish Gupta</maintainer>
+  <version>1.0.0</version>
+  <description>Direct CAN driver and DBC encoder/decoder interface for PIXKIT Shuttle</description>
+  <maintainer email="bits@todo.todo">bits</maintainer>
   <license>Apache-2.0</license>
 
-  <buildtool_depend>ament_cmake</buildtool_depend>
-  <depend>pix_msgs</depend>
-  <depend>pix_can_codec</depend>
+  <depend>rclpy</depend>
+  <depend>pix_vehicle_msgs</depend>
+  <depend>std_msgs</depend>
 
   <export>
-    <build_type>ament_cmake</build_type>
+    <build_type>ament_python</build_type>
   </export>
 </package>

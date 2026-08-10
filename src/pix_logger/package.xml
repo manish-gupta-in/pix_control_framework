@@ -3,7 +3,7 @@
   <name>pix_logger</name>
   <version>1.0.0</version>
   <description>Logging framework for PIXKIT control framework</description>
-  <maintainer email="manish.gupta@example.com">Manish Gupta</maintainer>
+  <maintainer email="pix@example.com">PIX Control Framework</maintainer>
   <license>MIT</license>
   <depend>rclpy</depend>
   <depend>std_msgs</depend>

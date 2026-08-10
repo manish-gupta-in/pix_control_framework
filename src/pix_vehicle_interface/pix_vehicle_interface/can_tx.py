@@ -101,14 +101,20 @@ class PixCanTxNode(Node):
         # Prepare signals for each CAN command message
         
         # 1. Vehicle_Mode_Command (0x105 / 261)
+        # Auto_Professional MUST be 1 whenever ANY subsystem is being commanded.
+        # If it is 0, the VCU silently ignores Gear and Park commands even though
+        # steering and brake commands still get processed.
+        any_en = (cmd.steer_en or cmd.drive_en or cmd.brake_en or
+                  cmd.gear_en or cmd.park_en)
         vm_signals = {
-            'Auto_Professional': 1 if cmd.steer_en or cmd.drive_en or cmd.brake_en else 0,
+            'Auto_Professional': 1 if any_en else 0,
             'Headlight_Ctrl': 1 if cmd.headlight_ctrl else 0,
             'TurnLight_Ctrl': cmd.turn_light_ctrl,
             'Vehicle_VIN_Req': 0,
             'Drive_ModeCtrl': 1,  # Speed Drive Mode
             'Steer_ModeCtrl': 0   # Standard Steer Mode
         }
+
         
         # 2. Steering_Command (0x102 / 258)
         steer_signals = {

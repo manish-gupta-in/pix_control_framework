@@ -1,13 +1,23 @@
 <?xml version="1.0"?>
-<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>pix_state_manager</name>
-  <version>0.1.0</version>
-  <description>State Manager for PCF</description>
-  <maintainer email="manish.gupta@example.com">Manish Gupta</maintainer>
-  <license>Apache-2.0</license>
-  <buildtool_depend>ament_cmake</buildtool_depend>
-  <depend>rclcpp</depend>
-  <depend>pix_msgs</depend>
-  <export><build_type>ament_cmake</build_type></export>
+  <version>1.0.0</version>
+  <description>System state machine manager for PIXKIT control framework</description>
+  <maintainer email="pix@example.com">PIX Control Framework</maintainer>
+  <license>MIT</license>
+
+  <depend>rclpy</depend>
+  <depend>std_msgs</depend>
+  <depend>pix_vehicle_msgs</depend>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_pytest</test_depend>
+  <test_depend>pytest</test_depend>
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
 </package>
