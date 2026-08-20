@@ -66,6 +66,11 @@ class PixSafetyManagerNode(Node):
         self.estop_reason = "None"
         self.last_steer_cmd = 0.0
         self.last_steer_time = 0.0
+        # Grace period: do NOT monitor chassis faults for the first N seconds.
+        # The VCU reports transient communication faults (flt2=1) while it boots.
+        # Triggering E-stop on startup faults locks the vehicle before it is ready.
+        self.startup_grace_period = 3.0   # seconds
+        self.node_start_time = self.get_clock().now().nanoseconds / 1e9
         
         # Safety monitoring timer (runs at 50Hz)
         self.timer = self.create_timer(0.02, self.safety_loop)
@@ -95,6 +100,13 @@ class PixSafetyManagerNode(Node):
         self.check_chassis_faults(msg)
         
     def check_chassis_faults(self, status):
+        # Skip fault monitoring during startup grace period.
+        # The VCU sends transient communication faults (e.g. steer_flt2=1)
+        # for the first 1-2 seconds while it boots — acting on them would
+        # permanently latch an E-stop before operation even begins.
+        now = self.get_clock().now().nanoseconds / 1e9
+        if (now - self.node_start_time) < self.startup_grace_period:
+            return
         # Check all fault indicators from decoded CAN reports
         if status.steer_flt1 or status.steer_flt2:
             self.trigger_estop(f"Chassis Steering Fault! flt1: {status.steer_flt1}, flt2: {status.steer_flt2}")

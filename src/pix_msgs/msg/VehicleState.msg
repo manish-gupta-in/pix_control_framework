@@ -1,9 +1,0 @@
-std_msgs/Header header
-float64 current_steering_angle
-float64 current_speed
-float64 current_acceleration
-uint8 current_gear
-bool drive_by_wire_enabled
-bool steering_fault
-bool throttle_fault
-bool brake_fault

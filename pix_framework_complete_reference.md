@@ -1,311 +1,377 @@
-# PIXKIT Control Framework — Complete Reference Guide
-**Version 2.0 | 13 Packages | 134 Tests — All PASS ✓**
+# PIXKIT Autonomous Shuttle — Control Framework v6
+## Complete Deployment & Field-Testing Reference
+
+> **Platform:** ROS 2 Humble · Ubuntu 22.04 · SocketCAN (`can4`) · 500 kbps
+> **Package:** `pix_control_framework_v6_final.tar.gz`
+> **Last updated:** 2026-06-10
 
 ---
 
-## 1. Directory Structure (v2.0 — Final)
-
-```
-pix_control_framework/
-├── launch/
-│   ├── hw_framework.launch.py       ← Hardware: 9 nodes (CAN TX/RX, arbitrator, safety,
-│   │                                              state manager, diagnostics, logger, config, YOLO)
-│   ├── sim_framework.launch.py      ← Simulation: same minus CAN, plus simulator + RViz
-│   └── sim_config.rviz              ← RViz display config
-│
-├── scripts/
-│   └── actuator_test.py             ← ★ Manual actuator commissioning tool
-│
-└── src/
-    ├── pix_vehicle_msgs/            ← ROS2 message definitions (CMake package)
-    │   └── msg/
-    │       ├── PixControlCmd.msg    ← All actuator commands + gear/park constants
-    │       ├── PixVehicleStatus.msg ← Full VCU feedback + gear/park/battery constants
-    │       └── PixSystemState.msg   ← NEW: system state, fault count, active algorithm
-    │
-    ├── pix_vehicle_interface/       ← CAN driver (SocketCAN ↔ ROS2)
-    │   ├── config/
-    │   │   ├── hook2_AD.dbc         ← PIX VCU DBC database (DO NOT MODIFY)
-    │   │   ├── can_tx_params.yaml   ← ★ Tune: interface name, rate, enable flag
-    │   │   └── can_rx_params.yaml   ← ★ Tune: interface name, rate
-    │   ├── pix_vehicle_interface/
-    │   │   ├── can_tx.py            ← Cyclically encodes 6 command frames → SocketCAN
-    │   │   ├── can_rx.py            ← Reads report frames → /pix/vehicle_status
-    │   │   ├── dbc_encoder.py       ← cantools wrapper + PIX XOR checksum (bytes 0–6 → byte 7)
-    │   │   └── dbc_decoder.py       ← cantools wrapper for decoding report frames
-    │   └── test/
-    │       └── test_dbc_codec.py    ← 19 tests: encoding, frame IDs, roundtrip
-    │
-    ├── pix_safety_manager/          ← Safety envelope + rate limiter + watchdog
-    │   ├── config/
-    │   │   └── safety_params.yaml   ← ★ Tune: steer limits, speed limits, watchdog timeout
-    │   ├── pix_safety_manager/
-    │   │   └── safety_manager_node.py
-    │   └── test/
-    │       └── test_safety_logic.py ← 28 tests: clamp, rate limit, E-stop conditions
-    │
-    ├── pix_command_manager/         ← Priority-based command arbitration
-    │   ├── config/
-    │   │   └── arbitrator_params.yaml ← ★ Tune: algorithm timeout window
-    │   ├── pix_command_manager/
-    │   │   └── command_arbitrator.py  ← Priority: ESTOP > COLLISION > HUMAN > LANE > CRUISE
-    │   └── test/
-    │       └── test_arbitration_logic.py ← 11 tests: priority, timeout, standby fallback
-    │
-    ├── pix_state_manager/           ← NEW: System state machine
-    │   ├── config/
-    │   │   └── state_manager_params.yaml ← ★ Tune: timeouts, recovery delay
-    │   ├── pix_state_manager/
-    │   │   └── system_state_manager_node.py ← MANUAL/STANDBY/AUTONOMOUS/FAULT/ESTOP
-    │   └── test/
-    │       └── test_state_machine.py ← 18 tests: all transitions, fault handling, E-stop latch
-    │
-    ├── pix_diagnostics/             ← NEW: Health monitoring → /diagnostics
-    │   ├── config/
-    │   │   └── diagnostics_params.yaml ← ★ Tune: timeouts, battery thresholds
-    │   ├── pix_diagnostics/
-    │   │   └── diagnostics_node.py   ← 6 channels: CAN RX/TX, VCU faults, watchdog, battery, state
-    │   └── test/
-    │       └── test_diagnostics_logic.py ← 29 tests: all channel logic
-    │
-    ├── pix_logger/                  ← NEW: CSV logging framework
-    │   ├── config/
-    │   │   └── logger_params.yaml   ← ★ Toggle per-topic logging, flush interval
-    │   ├── pix_logger/
-    │   │   └── logger_node.py       ← Writes ~/pix_logs/<session>/*.csv at 50 Hz
-    │   └── test/
-    │       └── test_logger_config.py ← 17 tests: CSV structure, profile validation
-    │
-    ├── pix_config_manager/          ← NEW: YAML profile manager
-    │   ├── profiles/
-    │   │   ├── simulation.yaml      ← vcan0, relaxed limits for dev
-    │   │   ├── hardware.yaml        ← can4, conservative limits for deployment
-    │   │   └── tuning.yaml          ← can4, intermediate for field tuning
-    │   └── pix_config_manager/
-    │       └── config_manager_node.py ← Loads profile, publishes /pix/config/active_profile
-    │
-    ├── pix_algorithm_api/           ← Base class for all algorithm nodes
-    │   └── pix_algorithm_api/
-    │       └── base_algorithm_interface.py ← publish_control_cmd() helper
-    │
-    ├── pix_simulator/               ← 50Hz kinematic bicycle model + RViz output
-    │   ├── config/
-    │   │   └── simulator_params.yaml ← ★ Tune: wheelbase, max decel, friction
-    │   └── test/
-    │       └── test_kinematics.py   ← 17 tests: speed/steer/position/yaw integration
-    │
-    ├── lane_following/              ← Mock lane follower (priority 3)
-    ├── object_tracking/             ← Mock object tracker (priority 1)
-    └── yolo_person_avoidance/       ← YOLO lateral avoidance (priority 2)
-        └── config/
-            └── yolo_avoidance_params.yaml ← ★ Tune: model, gain, ramp, hold_frames
-```
+## Table of Contents
+1. [Architecture Overview](#1-architecture-overview)
+2. [Bug Fix History (All Sessions)](#2-bug-fix-history-all-sessions)
+3. [Step-by-Step Deployment](#3-step-by-step-deployment)
+4. [Actuator Test Procedures](#4-actuator-test-procedures)
+5. [CAN Signal Reference](#5-can-signal-reference)
+6. [VCU State Machine](#6-vcu-state-machine)
+7. [Algorithm Activation](#7-algorithm-activation)
+8. [Monitoring & Diagnostics](#8-monitoring--diagnostics)
+9. [Troubleshooting Guide](#9-troubleshooting-guide)
+10. [Safety Procedures](#10-safety-procedures)
 
 ---
 
-## 2. Topic Map
+## 1. Architecture Overview
 
-| Topic | Message Type | Publisher → Subscriber |
-|---|---|---|
-| `/pix/vehicle_status` | `PixVehicleStatus` | `can_rx` → all nodes |
-| `/pix/control_cmd` | `PixControlCmd` | `safety_manager` → `can_tx` |
-| `/pix/raw_control_cmd` | `PixControlCmd` | `command_arbitrator` → `safety_manager` |
-| `/pix/commands/cruise_control` | `PixControlCmd` | actuator_test → arbitrator |
-| `/pix/commands/lane_following` | `PixControlCmd` | `lane_following` → arbitrator |
-| `/pix/commands/yolo_avoidance` | `PixControlCmd` | `yolo_avoidance` → arbitrator |
-| `/pix/system_state` | `PixSystemState` | `state_manager` → all |
-| `/pix/estop_trigger` | `Bool` | any → `state_manager` |
-| `/pix/estop_clear` | `Bool` | operator → `state_manager` |
-| `/diagnostics` | `DiagnosticArray` | `pix_diagnostics` → rqt/logging |
-| `/pix/config/active_profile` | `String` (JSON) | `config_manager` → all |
+```
+Algorithms (YOLO / Lane / Cruise)
+        |  /pix/commands/<source>
+Command Arbitrator  (priority queue, 50 Hz)
+        |  /pix/raw_control_cmd
+Safety Manager      (watchdog · e-stop · rate-limit)
+        |  /pix/control_cmd
+CAN TX Node         (DBC encode -> SocketCAN)
+        |  CAN bus (500 kbps)
+VCU Hardware        (Steering · Throttle · Brake · Gear · Park)
+        ^  CAN bus
+CAN RX Node         (SocketCAN -> DBC decode)
+        |  /pix/vehicle_status
+State Manager / Diagnostics / Logger
+```
+
+**Topic map:**
+
+| Topic | Publisher | Subscriber |
+|-------|-----------|------------|
+| `/pix/commands/cruise_control` | actuator_test / user | Arbitrator |
+| `/pix/commands/collision_avoidance` | YOLO node | Arbitrator |
+| `/pix/raw_control_cmd` | Arbitrator | Safety Manager |
+| `/pix/control_cmd` | Safety Manager | CAN TX |
+| `/pix/vehicle_status` | CAN RX | State Mgr, Diagnostics |
+| `/pix/system_state` | State Manager | All |
+| `/diagnostics` | Diagnostics | (monitor) |
 
 ---
 
-## 3. System State Machine
+## 2. Bug Fix History (All Sessions)
 
-```
-Power ON
-   │
-   ▼
-MANUAL (0) ──── DBW engaged ────────────► STANDBY (1)
-   ▲                                           │
-   │                                    Algorithm active
-   │                                           │
-   │                                           ▼
-   │                                    AUTONOMOUS (2)
-   │                                           │
-   │         Any state (except ESTOP)          │
-   │◄──── VCU fault detected ─────────────────┘
-   │
-   ▼
-FAULT (3) ──── fault clears + 2s ───────► STANDBY (1)
-   │
-   │  (only via /pix/estop_trigger)
-   ▼
-ESTOP (4) ──── /pix/estop_clear=True ───► MANUAL (0)
+### v6 — 2026-06-10 (THIS RELEASE) *** CRITICAL ***
+
+#### BUG: Gear & Park Commands Silently Rejected by VCU
+
+**Root cause — two separate bugs:**
+
+**Bug A — `can_tx.py`: `Auto_Professional` was conditional**
+
+```python
+# BROKEN — AP=0 whenever idle; VCU drops to Standby
+'Auto_Professional': 1 if any_en else 0,
+
+# FIXED — AP=1 always; VCU stays in Autonomous Mode
+'Auto_Professional': 1,   # Always 1
 ```
 
-**Trigger E-stop:**
-```bash
-ros2 topic pub /pix/estop_trigger std_msgs/msg/Bool "data: true" --once
+The VCU has two operating modes:
+
+| Vehicle_ModeState | Value | Accepts |
+|-------------------|-------|---------|
+| Standby Mode | 3 | Steering OK  Brake OK  Gear NO  Park NO |
+| **Auto Mode** | **1** | **All subsystems OK** |
+
+Between publishing bursts `any_en` dropped to False -> `Auto_Professional=0` -> VCU reverted to
+Standby -> gear/park silently ignored. Steering and brake still worked in Standby (which is why
+those tests passed), masking this bug.
+
+**Bug B — `actuator_test.py`: gear/park tests didn't activate Auto Mode**
+
+The VCU transitions Standby -> Auto ONLY when `steer_en=1` is sent alongside `Auto_Professional=1`.
+The old gear/park tests sent only `gear_en=True` — VCU never entered Auto Mode.
+
+**Fix:** All gear/park test steps now include `steer_en=True, steer_target=0.0` plus a
+**2-second VCU warm-up phase** at the start of each test.
+
+**Wire-level proof:**
+
 ```
-**Clear E-stop (manual operator action required first):**
-```bash
-ros2 topic pub /pix/estop_clear std_msgs/msg/Bool "data: true" --once
+# Before fix — 0x105 byte[0]=0x00 = Auto_Professional=0
+can4  105  [8]  00 01 00 00 00 00 00 01   <- AP=0, VCU in Standby
+
+# After fix — 0x105 byte[0]=0x80 = Auto_Professional=1
+can4  105  [8]  80 01 00 00 00 00 00 81   <- AP=1, VCU in Auto Mode
+
+# Expected gear PARK command (0x103)
+can4  103  [8]  01 01 00 00 00 00 00 00   <- Gear_EnCtrl=1, Gear_Target=1(PARK)
+
+# Expected gear DRIVE command (0x103)
+can4  103  [8]  01 04 00 00 00 00 00 05   <- Gear_EnCtrl=1, Gear_Target=4(DRIVE)
+
+# Expected park ENGAGE (0x104)
+can4  104  [8]  01 01 00 00 00 00 00 00   <- Park_EnCtrl=1, Park_Target=1(trigger)
 ```
 
 ---
 
-## 4. Unit Test Suite
+### v5 — 2026-06-09
 
-**All 134 tests pass. No ROS2 daemon required.**
+| Fix | File | Detail |
+|-----|------|--------|
+| CAN startup E-stop | `safety_manager_node.py` | 3 s grace period ignores VCU boot faults |
+| CAN startup E-stop | `system_state_manager_node.py` | 3 s grace period |
+| CAN TX buffer full | `can_tx.py` | errno 105 -> WARNING (not ERROR), log-throttled |
+| Config file install | `pix_vehicle_interface/setup.py` | `glob('config/*.yaml')` in data_files |
+| DBC decode crash | `dbc_decoder.py` | `decode_choices=False` + `_to_num()` fallback |
+
+---
+
+## 3. Step-by-Step Deployment
+
+### 3.1 Transfer to Vehicle Computer
 
 ```bash
-cd ~/Desktop/Manish/Custom_Interface_study/pix_control_framework
-source /opt/ros/humble/setup.bash && source install/setup.bash
+# USB stick
+cp ~/Desktop/Manish/Custom_Interface_study/pix_control_framework_v6_final.tar.gz /media/usb/
 
-python3 -m pytest \
-  src/pix_state_manager/test/test_state_machine.py \
-  src/pix_diagnostics/test/test_diagnostics_logic.py \
-  src/pix_logger/test/test_logger_config.py \
-  src/pix_command_manager/test/test_arbitration_logic.py \
-  src/pix_safety_manager/test/test_safety_logic.py \
-  src/pix_simulator/test/test_kinematics.py \
-  src/pix_vehicle_interface/test/test_dbc_codec.py \
-  -v
+# OR SCP over network
+scp ~/Desktop/Manish/Custom_Interface_study/pix_control_framework_v6_final.tar.gz \
+    sysadmin@<vehicle-ip>:~/Downloads/
 ```
 
-| Test File | Tests | What It Covers |
-|---|---|---|
-| `test_state_machine.py` | 18 | All state transitions, fault latch, E-stop latch |
-| `test_diagnostics_logic.py` | 29 | CAN age checks, VCU faults, battery thresholds, watchdog |
-| `test_logger_config.py` | 17 | CSV structure, profile YAML existence and correctness |
-| `test_arbitration_logic.py` | 11 | Priority order, timeout, standby fallback |
-| `test_safety_logic.py` | 28 | Steer clamp, rate limiter, all E-stop conditions |
-| `test_kinematics.py` | 17 | Speed, braking, E-stop, steering, position, yaw |
-| `test_dbc_codec.py` | 19 | All 6 command encodings, 7 report IDs, roundtrip |
+### 3.2 Extract & Build (on Vehicle Computer)
 
----
-
-## 5. Config Tuning Reference
-
-### `safety_params.yaml` (Hardware values)
-| Parameter | HW Default | SIM Default | Effect |
-|---|---|---|---|
-| `max_steer_angle` | `280.0°` | `350.0°` | Hard cap on steering output |
-| `max_steer_rate` | `150.0°/s` | `300.0°/s` | Max per-tick change — prevents jerks |
-| `max_speed` | `3.0 m/s` | `5.0 m/s` | Speed cap passed to VCU |
-| `max_accel` | `1.0 m/s²` | `3.0 m/s²` | Acceleration cap |
-| `watchdog_timeout` | `0.3 s` | `0.6 s` | E-stop if no algorithm heartbeat |
-
-### `state_manager_params.yaml`
-| Parameter | Default | Effect |
-|---|---|---|
-| `algorithm_timeout` | `0.5 s` | Time without command before state drops to STANDBY |
-| `fault_clear_delay` | `2.0 s` | Delay before recovering from FAULT → STANDBY |
-
-### `diagnostics_params.yaml`
-| Parameter | Default | Effect |
-|---|---|---|
-| `can_rx_timeout` | `0.5 s` | Age threshold for CAN RX WARN |
-| `battery_warn_v` | `46.0 V` | Battery voltage warning threshold |
-| `battery_error_v` | `42.0 V` | Battery voltage error threshold |
-| `battery_warn_soc` | `20.0 %` | SOC warning threshold |
-
-### `yolo_avoidance_params.yaml`
-| Parameter | Default | Effect |
-|---|---|---|
-| `confidence_threshold` | `0.40` | Lower = more detections, higher = fewer false positives |
-| `gain` | `300.0` | Avoidance steering magnitude per normalized pixel offset |
-| `max_avoidance` | `500.0°` | Full avoidance steer lock (reduce for gentler arc) |
-| `ramp_rate` | `200.0°/s` | Max steer change per tick |
-| `hold_frames` | `15` | Hold command after person disappears (frames at ~30fps) |
-| `target_speed` | `2.0 m/s` | Speed cap during active avoidance |
-
----
-
-## 6. Build and Deploy
-
-### Development Machine — Build Once
 ```bash
-cd ~/Desktop/Manish/Custom_Interface_study/pix_control_framework
+cd ~/Downloads
+tar -xzvf pix_control_framework_v6_final.tar.gz
+cd pix_control_framework
+
 source /opt/ros/humble/setup.bash
 colcon build --symlink-install
 source install/setup.bash
 ```
 
-### Simulation (No Vehicle Needed)
+Expected: `Summary: 13 packages finished` — zero ERRORs.
+
+### 3.3 Verify CAN Interface
+
 ```bash
-ros2 launch launch/sim_framework.launch.py profile:=simulation
+ip link show can4
+
+# If not up:
+sudo ip link set can4 up type can bitrate 500000
+sudo ip link set can4 txqueuelen 1000
+
+# Confirm VCU frames
+candump can4 | head -20
+# Must see: 0x505 (VCU_Report), 0x502 (Steering_Report), 0x503 (Gear_Report)
 ```
 
-### Hardware Deployment
-```bash
-# Pre-flight: bring CAN up
-sudo ip link set can4 up type can bitrate 500000
-candump can4 -n 10     # verify: must see 0x500, 0x501, 0x502, 0x505, 0x512
+### 3.4 Launch the Framework
 
-# Launch all 9 nodes
+```bash
+cd ~/Downloads/pix_control_framework
+source /opt/ros/humble/setup.bash
+source install/setup.bash
+
+# Full hardware mode
 ros2 launch launch/hw_framework.launch.py profile:=hardware
+
+# Steering-only safe test (no throttle/drive)
+ros2 launch launch/hw_framework.launch.py profile:=hardware steer_only_mode:=True
+```
+
+### 3.5 Monitor Health (separate terminals)
+
+```bash
+# Terminal 2 — system state
+ros2 topic echo /pix/system_state
+
+# Terminal 3 — vehicle status
+ros2 topic echo /pix/vehicle_status
+
+# Terminal 4 — diagnostics
+ros2 topic echo /diagnostics
+
+# Terminal 5 — CAN dump
+candump can4
+```
+
+**Expected healthy state after v6:**
+```
+vehicle_status:
+  vehicle_mode_state: 1      <- Auto Mode (was 3=Standby in v5)
+  auto_professional_fb: 1    <- VCU acknowledged AP mode
+  steer_en_state: 1          <- Steer in Auto (was 3=Standby in v5)
+  gear_actual: <changes>     <- Gear responds to commands now
 ```
 
 ---
 
-## 7. Vehicle Deployment — Full Sequence
+## 4. Actuator Test Procedures
 
-### Step 1: Package & Transfer (Dev Machine)
+### 4.1 Run Tests
+
 ```bash
-# The compressed package is ready at:
-~/Desktop/Manish/Custom_Interface_study/pix_control_framework_v2.tar.gz  # 5.8 MB
-
-# Transfer via SCP:
-scp pix_control_framework_v2.tar.gz sysadmin@<VEHICLE_IP>:~/
-
-# Or via USB — copy file to USB, then on vehicle:
-cp /media/<USB>/pix_control_framework_v2.tar.gz ~/
+python3 scripts/actuator_test.py --mode hardware --test steering
+python3 scripts/actuator_test.py --mode hardware --test brake
+python3 scripts/actuator_test.py --mode hardware --test gear
+python3 scripts/actuator_test.py --mode hardware --test park
+python3 scripts/actuator_test.py --mode hardware --test throttle   # vehicle MOVES!
+python3 scripts/actuator_test.py --mode hardware --test full
 ```
 
-### Step 2: Extract & Build (Vehicle Computer)
-```bash
-cd ~
-tar -xzvf pix_control_framework_v2.tar.gz
-cd pix_control_framework
-source /opt/ros/humble/setup.bash
-colcon build --symlink-install    # expects: 13 packages finished
-source install/setup.bash
+### 4.2 Gear Test — Expected CAN frames
+
+Monitor in second terminal: `candump can4 | grep -E " 103 | 104 | 105 | 503 | 504 "`
+
+| Test Step | 0x105 byte[0] | 0x103 payload | 0x503 Gear_Actual |
+|-----------|---------------|---------------|-------------------|
+| Warm-up | 0x80 (AP=1) | 01 01... | 1 (PARK) |
+| NEUTRAL  | 0x80 (AP=1) | 01 03... | 3 (NEUTRAL) |
+| DRIVE    | 0x80 (AP=1) | 01 04... | 4 (DRIVE) |
+| NEUTRAL  | 0x80 (AP=1) | 01 03... | 3 (NEUTRAL) |
+| PARK     | 0x80 (AP=1) | 01 01... | 1 (PARK) |
+
+If 0x105 byte[0] = 0x00 -> AP=0 -> VCU in Standby -> rebuild with v6 fix.
+
+### 4.3 Throttle Test Safety Checklist
+
+- [ ] 5 m clear ahead
+- [ ] Operator at E-stop button
+- [ ] Gear in DRIVE (gear test must pass first)
+- [ ] First run: max_speed = 1.0 m/s
+
+---
+
+## 5. CAN Signal Reference
+
+### TX Messages (Laptop -> VCU)
+
+#### 0x100 — Throttle_Command
+| Signal | Bit | Note |
+|--------|-----|------|
+| Dirve_EnCtrl | 0, len=1 | Enable drive |
+| Dirve_SpeedTarget | 32, len=16 | Speed target |
+| Dirve_ThrottlePedalTarget | 16, len=16 | Pedal % |
+| Dirve_Acc | 8, len=8 | m/s^2 |
+| CheckSum_100 | 63, len=8 | XOR byte[0..6] |
+
+#### 0x101 — Brake_Command
+| Signal | Bit | Note |
+|--------|-----|------|
+| Brake_EnCtrl | 0, len=1 | Enable brake |
+| Brake_Pedal_Target | 8, len=16 | 0-100% |
+| Brake_Dec | 24, len=16 | m/s^2 |
+| AEB_EnCtrl | 40, len=1 | AEB enable |
+| CheckSum_101 | 63, len=8 | XOR byte[0..6] |
+
+#### 0x102 — Steering_Command
+| Signal | Bit | Note |
+|--------|-----|------|
+| Steer_EnCtrl | 0, len=1 | Enable steer |
+| Steer_AngleTarget | 16, len=16 | deg signed |
+| Steer_AngleSpeed | 32, len=16 | 1-250 deg/s |
+| CheckSum_102 | 63, len=8 | XOR byte[0..6] |
+
+#### 0x103 — Gear_Command
+| Signal | Bit | Values |
+|--------|-----|--------|
+| Gear_EnCtrl | 0, len=1 | 0=Disable, 1=Enable |
+| Gear_Target | 10, len=3 | 0=INVALID, 1=PARK, 2=REVERSE, 3=NEUTRAL, 4=DRIVE |
+| CheckSum_103 | 63, len=8 | XOR byte[0..6] |
+
+> IMPORTANT: Gear commands ONLY accepted when Vehicle_ModeState=1 (Auto Mode).
+> Auto Mode requires Auto_Professional=1 in 0x105 AND Steer_EnCtrl=1 in 0x102.
+
+#### 0x104 — Park_Command
+| Signal | Bit | Values |
+|--------|-----|--------|
+| Park_EnCtrl | 0, len=1 | 0=Disable, 1=Enable |
+| Park_Target | 8, len=1 | 0=Release, 1=Parking_trigger |
+| CheckSum_104 | 63, len=8 | XOR byte[0..6] |
+
+#### 0x105 — Vehicle_Mode_Command  *** CRITICAL ***
+| Signal | Bit | Values |
+|--------|-----|--------|
+| Auto_Professional | 7, len=1 | **ALWAYS 1** (byte[0] = 0x80) |
+| Steer_ModeCtrl | 2, len=3 | 0=Standard |
+| Drive_ModeCtrl | 10, len=3 | 1=Speed Drive |
+| TurnLight_Ctrl | 17, len=2 | 0=OFF,1=LEFT,2=RIGHT,3=HAZARD |
+| Headlight_Ctrl | 18, len=1 | 0/1 |
+| CheckSum_105 | 63, len=8 | XOR byte[0..6] |
+
+### RX Messages (VCU -> Laptop)
+
+#### 0x505 — VCU_Report (key fields)
+| Signal | Healthy | Problem |
+|--------|---------|---------|
+| Vehicle_ModeState | 1 (Auto) | 3 = Standby |
+| Auto_ProfessionalFb | 1 (Enable) | 0 = not in AP mode |
+| CarPower_State | 2 (READY) | 0=OFF, 1=ON |
+| CarWork_State | 4 (work) | 5=Estop, 6=error, 7=crash |
+
+#### 0x502 — Steering_Report
+| Signal | Healthy | Problem |
+|--------|---------|---------|
+| Steer_EnState | 1 (Auto) | 3 = Standby |
+| Steer_Flt1/2 | 0 | 1 = fault |
+
+#### 0x503 — Gear_Report
+| Signal | Values |
+|--------|--------|
+| Gear_Actual | 0=INVALID, 1=PARK, 2=REVERSE, 3=NEUTRAL, 4=DRIVE |
+| Gear_Flt | 0=No Fault |
+
+#### 0x504 — Park_Report
+| Signal | Values |
+|--------|--------|
+| Parking_Actual | 0=Release, 1=Parking_trigger |
+| Park_Flt | 0=No Fault |
+
+---
+
+## 6. VCU State Machine
+
+```
+Power ON
+  |
+  v
+Manual/Remote Mode (0)
+  |  [Auto_Professional=1 + Steer_EnCtrl=1 received]
+  v
+Standby Mode (3) <----------------------------------+
+  |  [Auto_Professional=1 continuous + steer_en=1]  |
+  v                                                  |
+Auto Mode (1)  <- gear/park commands accepted here  |
+  |  [emergency or AP=0]                             |
+  v                                                  |
+Emergency Mode (2) ---------------------------------+
 ```
 
-### Step 3: Pre-flight
+Key rule: Auto_Professional=1 must be CONTINUOUSLY held in 0x105.
+If it ever drops to 0, VCU returns to Standby within ~100 ms.
+
+---
+
+## 7. Algorithm Activation
+
+### Steering-Only Avoidance (Stationary)
+
 ```bash
-sudo ip link set can4 up type can bitrate 500000
-candump can4 -n 20    # confirm VCU frames streaming
+ros2 launch launch/hw_framework.launch.py steer_only_mode:=True
 ```
 
-### Step 4: Launch
+### Full Avoidance with Motion
+
 ```bash
-ros2 launch launch/hw_framework.launch.py profile:=hardware
+ros2 launch launch/hw_framework.launch.py steer_only_mode:=False
 ```
 
-### Step 5: Verify in Separate Terminals
+### Manual Commands via CLI
+
 ```bash
-# Terminal 2 — VCU feedback:
-ros2 topic echo /pix/vehicle_status
-
-# Terminal 3 — System state (should show state: 0 = MANUAL initially):
-ros2 topic echo /pix/system_state
-
-# Terminal 4 — Health check (all channels should be OK or WARN, not ERROR):
-ros2 topic echo /diagnostics
-```
-
-### Step 6: Actuator Commissioning (STRICT ORDER)
-```bash
-# ALWAYS in this order — never skip:
-python3 scripts/actuator_test.py --mode hw --test brake      # 1st — validates stop authority
-python3 scripts/actuator_test.py --mode hw --test steering   # 2nd — wheels turn L/R
-python3 scripts/actuator_test.py --mode hw --test gear       # 3rd — P→N→D→N→P
-python3 scripts/actuator_test.py --mode hw --test park       # 4th — park release/engage
-python3 scripts/actuator_test.py --mode hw --test throttle   # 5th — ⚠ VEHICLE MOVES ~5m
+ros2 topic pub /pix/commands/cruise_control pix_vehicle_msgs/msg/PixControlCmd \
+  '{steer_en: true, steer_target: 0.0, steer_speed: 100.0,
+    gear_en: true, gear_target: 3,
+    park_en: true, park_target: 0}'
 ```
 
 ---
@@ -313,81 +379,110 @@ python3 scripts/actuator_test.py --mode hw --test throttle   # 5th — ⚠ VEHIC
 ## 8. Monitoring & Diagnostics
 
 ```bash
-# Check which algorithm is controlling:
-ros2 topic echo /pix/system_state   # active_algorithm field
+# Watch vehicle status
+watch -n1 "ros2 topic echo /pix/vehicle_status --once"
 
-# Check what safety layer passes to VCU:
-ros2 topic echo /pix/control_cmd
+# CAN — command frames only
+candump can4 | grep -E " 100 | 101 | 102 | 103 | 104 | 105 "
 
-# View all CSV logs from the session:
-ls ~/pix_logs/
-head ~/pix_logs/<session>/vehicle_state.csv
+# CAN — report frames only
+candump can4 | grep -E " 500 | 501 | 502 | 503 | 504 | 505 "
 
-# View active config profile:
-ros2 topic echo /pix/config/active_profile
+# Check Auto_Professional byte live
+candump can4 | awk '/ 105 / {if ($5=="80") print "AP=1 OK"; else print "AP=0 ERROR: " $0}'
+
+# Log files
+ls -lt ~/pix_logs/ | head -5
 ```
-
-**CSV Files Written Per Session** (`~/pix_logs/<YYYYMMDD_HHMMSS>/`):
-| File | Contents |
-|---|---|
-| `vehicle_state.csv` | Full VCU feedback at 50 Hz |
-| `control_cmd.csv` | Safety-filtered command output |
-| `raw_cmd.csv` | Pre-safety arbitrated command |
-| `system_state.csv` | State transitions with timestamps |
 
 ---
 
-## 9. Emergency Recovery
+## 9. Troubleshooting Guide
 
-**Trigger E-stop from any terminal:**
+### Gear stays at NEUTRAL (3) — doesn't change
+
+1. `candump can4 | awk '/ 105 /'` — byte[0] must be `80`
+2. `ros2 topic echo /pix/vehicle_status | grep vehicle_mode_state` — must be `1`
+3. If VCU stays in Standby (3): verify `can_tx.py` has `'Auto_Professional': 1` (not conditional)
+4. Verify gear test sends `steer_en=True`
+5. Rebuild: `colcon build --symlink-install`
+
+### Park brake doesn't engage
+
+Same Auto Mode requirement as gear. Check 0x504 changes within 1-2 s of 0x104 command.
+
+### E-stop triggers at launch
+
+Boot-time transient. The 3 s grace period suppresses this. If persists:
 ```bash
-ros2 topic pub /pix/estop_trigger std_msgs/msg/Bool "data: true" --once
+grep startup_grace src/pix_safety_manager/pix_safety_manager/safety_manager_node.py
+# Must show: self.startup_grace_period = 3.0
 ```
 
-**Clear E-stop (only after confirming area is safe):**
+### CAN TX buffer warnings
+
+Shown as WARNING in v6. Increase queue if frequent:
 ```bash
-ros2 topic pub /pix/estop_clear std_msgs/msg/Bool "data: true" --once
+sudo ip link set can4 txqueuelen 2000
 ```
 
-**Hard restart (if E-stop latch cannot be cleared):**
+### PackageNotFoundError on launch
+
 ```bash
-Ctrl+C   # in the launch terminal
+colcon build --symlink-install
+source install/setup.bash
+```
+
+### Steering/Brake work but Gear/Park don't
+
+Classic v5 symptom. Auto_Professional was conditional. Deploy v6 package.
+
+---
+
+## 10. Safety Procedures
+
+### Pre-Drive Checklist
+
+- [ ] All humans clear of vehicle (5 m radius)
+- [ ] E-stop button tested manually
+- [ ] `candump can4` shows VCU frames
+- [ ] CarPower_State = 2 (READY)
+- [ ] CarWork_State = 0 (init) or 4 (work)
+- [ ] Gear in PARK before launch
+- [ ] First throttle test: max 1.0 m/s in open space
+
+### Software E-Stop
+
+```bash
+ros2 topic pub --once /pix/commands/emergency_stop \
+  pix_vehicle_msgs/msg/PixControlCmd '{emergency_stop: true}'
+```
+
+Clear latch after E-stop:
+```bash
+pkill -f safety_manager_node
 ros2 launch launch/hw_framework.launch.py profile:=hardware
 ```
 
 ---
 
-## 10. CAN Signal Reference (Verified vs Hooke2.0 Matrix)
+## Appendix A — Modified Files (v6)
 
-| Message | CAN ID | Dir | Key Signals |
-|---|---|---|---|
-| `Steer_Control` | 0x100 | TX | `Steer_Angle` (±500°, offset –500), `Steer_AngleSpeed` (0–250°/s) |
-| `Brake_Control` | 0x101 | TX | `Brake_En`, `Brake_PedalTarget` (0–100%) |
-| `Throttle_Control` | 0x102 | TX | `Drive_En`, `ThrottleAcc`, `ThrottlePedalTarget` (0–100%) |
-| `Park_Control` | 0x103 | TX | `Park_En`, `Park_Target` (0=Release, 1=Trigger) |
-| `Gear_Control` | 0x104 | TX | `Gear_En`, `Gear_Target` (1=P, 2=R, 3=N, 4=D) |
-| `VCU_Control` | 0x105 | TX | `VCU_DrivingMode_Cmd` (1=Auto, 2=Manual) |
-| `Throttle_Report` | 0x500 | RX | `Drive_EnState`, `ThrottlePedalActual` |
-| `Brake_Report` | 0x501 | RX | `Brake_EnState`, `Brake_PedalActual` |
-| `Steer_Report` | 0x502 | RX | `Steer_EnState`, `Steer_AngleActual` |
-| `Park_Report` | 0x503 | RX | `Park_EnState`, `Park_Actual` |
-| `Gear_Report` | 0x504 | RX | `Gear_EnState`, `Gear_Actual` |
-| `VCU_Report` | 0x505 | RX | `Vehicle_Speed`, `Vehicle_Mode` |
-| `BMS_Report` | 0x512 | RX | `Battery_Voltage`, `Battery_SOC`, `Battery_Current` |
+| File | Change |
+|------|--------|
+| `src/pix_vehicle_interface/pix_vehicle_interface/can_tx.py` | Auto_Professional=1 always (v6 critical fix) |
+| `scripts/actuator_test.py` | Gear/park tests: steer_en=True + VCU warm-up (v6) |
+| `src/pix_safety_manager/pix_safety_manager/safety_manager_node.py` | 3 s startup grace (v5) |
+| `src/pix_state_manager/pix_state_manager/system_state_manager_node.py` | 3 s startup grace (v5) |
+| `src/pix_vehicle_interface/pix_vehicle_interface/dbc_decoder.py` | decode_choices=False + _to_num() (v5) |
+| `src/pix_vehicle_interface/setup.py` | glob('config/*.yaml') in data_files (v5) |
+| `launch/hw_framework.launch.py` | steer_only_mode param (v5) |
 
-> Checksum: XOR of bytes 0–6 → byte 7. Computed automatically by `DBCEncoder`.
+## Appendix B — Version Log
 
----
-
-## 11. Known Issues Fixed in v2.0
-
-| Issue | Root Cause | Fix |
-|---|---|---|
-| `(no feedback received yet)` in actuator_test | `can_rx` not running | hw_framework now always includes `can_rx` |
-| Commands not reaching VCU (no 0x100–0x105 in candump) | `can_tx` missing from old launch file | hw_framework now always includes `can_tx` |
-| Arbitrator spam `NONE → STANDBY/NONE` every 20 ms | Sentinel comparison bug | Fixed: stable label, only logs on real state change |
-| `Steer_AngleSpeed` encoding overflow (>255) | 8-bit DBC field overflow | `min(speed, 250)` clamp in `can_tx.py` |
-
----
-
-*Framework Version 2.0 | 13 packages | 134 tests all pass | Deployment archive: pix_control_framework_v2.tar.gz*
+| Version | Date | Key Change |
+|---------|------|------------|
+| v1-v3 | 2026-06-07 | Initial framework, basic CAN TX/RX |
+| v4 | 2026-06-08 | DBC signal audit, NamedSignalValue fix |
+| v5 | 2026-06-09 | Startup grace, buffer fix, setup.py config install |
+| **v6** | **2026-06-10** | **Auto_Professional always=1; gear/park VCU Auto Mode fix** |

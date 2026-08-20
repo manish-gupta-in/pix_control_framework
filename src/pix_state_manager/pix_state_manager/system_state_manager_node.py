@@ -72,6 +72,9 @@ class SystemStateManager(Node):
         self._latest_raw_cmd      = None
         self._latest_raw_cmd_ts   = 0.0
         self._dbw_enabled         = False
+        # Grace period: same 3s window as safety_manager — ignore startup faults
+        self._startup_grace = 3.0
+        self._node_start_ts = time.monotonic()
 
         # ── Subscriptions ─────────────────────────────────────────────────
         self.create_subscription(PixVehicleStatus, '/pix/vehicle_status',
@@ -140,6 +143,9 @@ class SystemStateManager(Node):
 
     def _check_chassis_faults(self) -> str:
         """Returns fault description string if any fault is active, else empty."""
+        # Skip during startup grace period — VCU sends transient faults while booting
+        if (time.monotonic() - self._node_start_ts) < self._startup_grace:
+            return ''
         if self._latest_status is None:
             return ''
         s = self._latest_status

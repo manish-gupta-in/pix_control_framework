@@ -113,23 +113,31 @@ class ActuatorTestNode(Node):
             time.sleep(period)
 
     def center_and_stop(self, hold=2.0):
-        """Safe neutral state: center steer, zero speed, brakes off."""
-        self.get_logger().info('  → Returning to center / stopped state …')
+        """Safe neutral state: center steer, zero speed, 100% brake, NEUTRAL gear.
+        100% brake during gear shift satisfies VCU interlock (same as gear.py).
+        """
+        self.get_logger().info('  → Returning to center / NEUTRAL / 100% brake …')
         self.publish_for(hold,
-                         steer_en=True, steer_target=0.0, steer_speed=150.0,
-                         drive_en=True, speed_target=0.0, accel_target=0.5,
-                         brake_en=True, brake_target=0.0,
-                         gear_en=True,  gear_target=3,
-                         park_en=True,  park_target=0)
+                         steer_en=True,  steer_target=0.0,   steer_speed=100.0,
+                         drive_en=False, speed_target=0.0,   accel_target=1.0,
+                         brake_en=True,  brake_target=100.0,  # 100% like gear.py
+                         gear_en=True,   gear_target=3,        # NEUTRAL
+                         park_en=True,   park_target=0)
 
     def print_status(self):
         if self.latest_status is not None:
             s = self.latest_status
-            print(f'    VCU Status → speed={s.vehicle_speed:.2f}m/s | '
-                  f'steer={s.steer_angle:.1f}° | '
-                  f'gear={s.gear_actual} | '
-                  f'park={s.park_actual} | '
-                  f'brake={s.brake_pedal:.1f}%')
+            # vehicle_mode: 0=MANUAL, 1=AUTO(gear works!), 2=EMERGENCY, 3=STANDBY(gear blocked)
+            mode_names = {0: 'MANUAL', 1: 'AUTO✓', 2: 'EMERG', 3: 'STANDBY⚠'}
+            mode_str = mode_names.get(s.vehicle_mode, f'?{s.vehicle_mode}')
+            print(f'    VCU → speed={s.vehicle_speed:.2f}m/s | steer={s.steer_angle:.1f}° | '
+                  f'gear={s.gear_actual} | park={s.park_actual} | '
+                  f'brake={s.brake_pedal:.1f}% | mode={mode_str}({s.vehicle_mode})')
+            if s.vehicle_mode == 3:
+                print(f'    ⚠  VCU in STANDBY — gear changes BLOCKED by hardware interlock.')
+                print(f'    ⚠  Set physical VCU remote/key to AUTO position to enable gear control.')
+            elif s.vehicle_mode == 1:
+                print(f'    ✓  VCU in AUTO mode — gear commands will be accepted.')
         else:
             print('    VCU Status → (no feedback received yet)')
 
@@ -180,58 +188,137 @@ def test_brake(node: ActuatorTestNode):
 def test_throttle(node: ActuatorTestNode):
     log = node.get_logger()
     log.info('═══ THROTTLE / SPEED TEST ═══')
-    log.info('⚠  CAUTION: Vehicle will move forward! Ensure clear path.')
-    log.info('Step 1/3: Engage Drive gear …')
-    node.publish_for(1.0, gear_en=True, gear_target=4, park_en=True, park_target=0)
+    log.info('⚠  CAUTION: Vehicle will move forward! Ensure 10m+ clear path ahead.')
+    log.info('⚠  VCU must be in AUTO mode (vehicle_mode=1) for DRIVE gear to engage.')
 
-    log.info(f'Step 2/3: Ramp speed to {THROTTLE_TARGET} m/s …')
+    # Step 1: Engage DRIVE gear with brake (VCU interlock requires brake for gear shift)
+    log.info('Step 1/4: Engage DRIVE gear (brake + steer + gear=DRIVE warm-up, 5 s) …')
+    node.publish_for(5.0,
+                     steer_en=True,  steer_target=0.0, steer_speed=100.0,
+                     brake_en=True,  brake_target=30.0,   # VCU safety interlock
+                     gear_en=True,   gear_target=4,        # DRIVE
+                     park_en=True,   park_target=0)
+    node.print_status()
+    log.info('  → Check: gear_actual should now be 4 (DRIVE), mode=AUTO✓')
+
+    # Step 2: Release brake and ramp speed
+    log.info(f'Step 2/4: Ramp speed to {THROTTLE_TARGET} m/s (release brake) …')
     node.publish_for(HOLD_SECONDS,
-                     drive_en=True, speed_target=THROTTLE_TARGET, accel_target=THROTTLE_ACCEL,
-                     gear_en=True,  gear_target=4,
-                     steer_en=True, steer_target=0.0, steer_speed=100.0)
+                     drive_en=True,  speed_target=THROTTLE_TARGET, accel_target=THROTTLE_ACCEL,
+                     gear_en=True,   gear_target=4,
+                     steer_en=True,  steer_target=0.0, steer_speed=100.0,
+                     brake_en=False, brake_target=0.0)
     node.print_status()
 
-    log.info('Step 3/3: Command speed = 0, coast to stop …')
+    # Step 3: Command speed = 0, apply brake, shift to NEUTRAL
+    log.info('Step 3/4: Slow to stop (speed=0, brake=30%) …')
     node.publish_for(HOLD_SECONDS,
-                     drive_en=True, speed_target=0.0, accel_target=0.5,
-                     brake_en=True, brake_target=10.0,
-                     gear_en=True,  gear_target=4)
+                     drive_en=True,  speed_target=0.0,  accel_target=0.5,
+                     brake_en=True,  brake_target=30.0,
+                     gear_en=True,   gear_target=4,
+                     steer_en=True,  steer_target=0.0, steer_speed=100.0)
     node.print_status()
-    node.center_and_stop()
+
+    # Step 4: Shift to NEUTRAL (still with brake engaged)
+    log.info('Step 4/4: Shift to NEUTRAL, engage park brake …')
+    node.publish_for(2.0,
+                     brake_en=True,  brake_target=30.0,
+                     gear_en=True,   gear_target=3,     # NEUTRAL
+                     steer_en=True,  steer_target=0.0, steer_speed=100.0,
+                     park_en=True,   park_target=0)
+    node.publish_for(2.0,
+                     brake_en=True,  brake_target=20.0,
+                     gear_en=True,   gear_target=1,     # PARK gear
+                     park_en=True,   park_target=1,     # Park brake on
+                     steer_en=True,  steer_target=0.0, steer_speed=100.0)
+    node.print_status()
     log.info('Throttle test COMPLETE ✓')
 
 
 def test_gear(node: ActuatorTestNode):
     log = node.get_logger()
     log.info('═══ GEAR CYCLE TEST ═══')
-    log.info('NOTE: Vehicle must be stationary. No drive commands issued.')
+    log.info('Mirrors gear.py proven sequence: 100% brake + all EnState=Auto before shift.')
+
+    # ── Step 0: Wake all subsystems (100% brake + steer + throttle + park OFF) ──
+    # gear.py waits until brake_en=Auto AND throttle_en=Auto AND steer_en=Auto.
+    # The VCU will not accept gear commands until all three subsystems are in Auto.
+    # This is the critical interlock — 100% brake (not 30%) is required.
+    log.info('Step 0: Wake all subsystems — 100% brake + steer + throttle (5 s) …')
+    log.info('         Waiting for brake_en=Auto, throttle_en=Auto, steer_en=Auto')
+    node.publish_for(5.0,
+                     steer_en=True,  steer_target=0.0,   steer_speed=100.0,
+                     drive_en=True,  speed_target=0.0,   accel_target=1.0,
+                     brake_en=True,  brake_target=100.0,  # 100% brake (gear.py value)
+                     gear_en=True,   gear_target=3,        # NEUTRAL
+                     park_en=True,   park_target=0)        # Park RELEASED
+    node.print_status()
+    log.info('  → Check above: brake_en_state=1(Auto), drive_en_state=1(Auto)')
+    log.info('  → If en_states are still 3(Standby), wait and retry Step 0')
+
+    # ── Gear cycle: same sequence as gear.py (no PARK gear via 0x103) ──────────
+    # IMPORTANT: gear.py confirmed PARK gear (id=1) via 0x103 is NOT supported
+    # on this VCU. Park is done via 0x104 (Park_Command) separately.
+    # Cycle: NEUTRAL → DRIVE → NEUTRAL → REVERSE → NEUTRAL
     sequence = [
-        (1, 'PARK',    3.0),
-        (3, 'NEUTRAL', 3.0),
-        (4, 'DRIVE',   3.0),
-        (3, 'NEUTRAL', 3.0),
-        (1, 'PARK',    3.0),
+        (3, 'NEUTRAL',  4.0),
+        (4, 'DRIVE',    4.0),
+        (3, 'NEUTRAL',  4.0),
+        (2, 'REVERSE',  4.0),
+        (3, 'NEUTRAL',  4.0),
     ]
     for gear_val, name, dur in sequence:
-        log.info(f'  → Gear → {name} ({gear_val}) …')
-        node.publish_for(dur, gear_en=True, gear_target=gear_val, park_en=True, park_target=0)
+        log.info(f'  → Gear → {name} ({gear_val}) … (0x103: EnCtrl=1 Target={gear_val})')
+        # Keep ALL enablers active + 100% brake during every shift (exact gear.py logic)
+        node.publish_for(dur,
+                         steer_en=True,  steer_target=0.0,   steer_speed=100.0,
+                         drive_en=True,  speed_target=0.0,   accel_target=1.0,
+                         brake_en=True,  brake_target=100.0,
+                         gear_en=True,   gear_target=gear_val,
+                         park_en=True,   park_target=0)
         node.print_status()
+
     log.info('Gear test COMPLETE ✓')
+    log.info('NOTE: To test PARK gear, use: python3 scripts/actuator_test.py --test park')
 
 
 def test_park(node: ActuatorTestNode):
     log = node.get_logger()
     log.info('═══ PARKING BRAKE TEST ═══')
+
+    # --- Extended VCU Warm-up with brake ---
+    # VCU safety lock: gear must NOT be in DRIVE to engage park brake.
+    # Must have brake engaged. Transition to NEUTRAL first, then PARK gear.
+    log.info('  → VCU warm-up: brake + steer + gear=NEUTRAL (5 s) …')
+    node.publish_for(5.0,
+                     steer_en=True,  steer_target=0.0, steer_speed=100.0,
+                     brake_en=True,  brake_target=30.0,
+                     gear_en=True,   gear_target=3,    # NEUTRAL first
+                     park_en=True,   park_target=0)
+    node.print_status()
+
+    log.info('  → Shifting to PARK gear …')
+    node.publish_for(3.0,
+                     steer_en=True,  steer_target=0.0, steer_speed=100.0,
+                     brake_en=True,  brake_target=30.0,
+                     gear_en=True,   gear_target=1,    # PARK gear
+                     park_en=True,   park_target=0)
+    node.print_status()
+
     log.info('Step 1/2: Release parking brake …')
     node.publish_for(HOLD_SECONDS,
-                     park_en=True, park_target=0,   # RELEASE
-                     gear_en=True, gear_target=1)   # PARK gear
+                     steer_en=True,  steer_target=0.0, steer_speed=100.0,
+                     brake_en=True,  brake_target=20.0,
+                     park_en=True,   park_target=0,   # RELEASE
+                     gear_en=True,   gear_target=1)   # PARK gear
     node.print_status()
 
     log.info('Step 2/2: Engage parking brake …')
     node.publish_for(HOLD_SECONDS,
-                     park_en=True, park_target=1,   # PARKING_TRIGGER
-                     gear_en=True, gear_target=1)
+                     steer_en=True,  steer_target=0.0, steer_speed=100.0,
+                     brake_en=True,  brake_target=20.0,
+                     park_en=True,   park_target=1,   # PARKING_TRIGGER
+                     gear_en=True,   gear_target=1)
     node.print_status()
     log.info('Park test COMPLETE ✓')
 

@@ -153,6 +153,7 @@ class YoloPersonAvoidanceNode(BaseAlgorithmInterface):
         self.declare_parameter('speed_dps', 250.0)
         self.declare_parameter('target_speed', 2.0)  # m/s target speed
         self.declare_parameter('no_display', True)    # Default headless
+        self.declare_parameter('steer_only_mode', False)  # Stationary steer test
         
         self.yolo_model = self.get_parameter('yolo_model').value
         self.conf_thresh = self.get_parameter('confidence_threshold').value
@@ -164,6 +165,13 @@ class YoloPersonAvoidanceNode(BaseAlgorithmInterface):
         self.speed_dps = self.get_parameter('speed_dps').value
         self.target_speed = self.get_parameter('target_speed').value
         self.no_display = self.get_parameter('no_display').value
+        self.steer_only_mode = self.get_parameter('steer_only_mode').value
+        
+        if self.steer_only_mode:
+            self.get_logger().warn(
+                "STEER_ONLY_MODE=True: Vehicle will NOT move. "
+                "Only steering actuation is active. Safe for stationary tests."
+            )
         
         # YOLO Initialization
         if YOLO is None:
@@ -231,21 +239,37 @@ class YoloPersonAvoidanceNode(BaseAlgorithmInterface):
         steer_cmd, dbg = self.ctrl.update(detections, fw, fh)
         
         # Publish control commands via Base class helper
-        # We drive forward when avoiding, enabling speed and steer controls
-        self.publish_control_cmd(
-            steer_target=steer_cmd,
-            steer_speed=self.speed_dps,
-            steer_en=True,
-            speed_target=self.target_speed,
-            accel_target=1.0,
-            drive_en=True,
-            brake_en=False,
-            brake_target=0.0,
-            gear_target=PixControlCmd.GEAR_TARGET_DRIVE,  # Drive gear
-            gear_en=True,
-            park_target=PixControlCmd.PARK_TARGET_RELEASE,  # Release park
-            park_en=True
-        )
+        if self.steer_only_mode:
+            # STATIONARY TEST: steer only, no drive/gear/park change
+            # Vehicle stays in current gear/park state — safe for on-vehicle bench test
+            self.publish_control_cmd(
+                steer_target=steer_cmd,
+                steer_speed=self.speed_dps,
+                steer_en=True,
+                speed_target=0.0,
+                accel_target=0.0,
+                drive_en=False,
+                brake_en=False,
+                brake_target=0.0,
+                gear_en=False,
+                park_en=False,
+            )
+        else:
+            # FULL MODE: steer + forward motion
+            self.publish_control_cmd(
+                steer_target=steer_cmd,
+                steer_speed=self.speed_dps,
+                steer_en=True,
+                speed_target=self.target_speed,
+                accel_target=1.0,
+                drive_en=True,
+                brake_en=False,
+                brake_target=0.0,
+                gear_target=PixControlCmd.GEAR_TARGET_DRIVE,
+                gear_en=True,
+                park_target=PixControlCmd.PARK_TARGET_RELEASE,
+                park_en=True
+            )
         
         # Display overlay if enabled
         if not self.no_display:

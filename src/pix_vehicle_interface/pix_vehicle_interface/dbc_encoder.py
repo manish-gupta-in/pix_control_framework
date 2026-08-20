@@ -30,9 +30,12 @@ class DBCEncoder:
             data = msg.encode(signals)
             data_arr = bytearray(data)
             
-            # PIX checksum is the sum of the first 7 bytes of the CAN message
+            # PIX checksum: XOR of bytes 0-6, placed in byte 7.
+            # Reference: Whale component (data[0]^data[1]^...^data[6])
             if checksum_sig:
-                checksum = sum(data_arr[:7]) & 0xFF
+                checksum = 0
+                for b in data_arr[:7]:
+                    checksum ^= b
                 data_arr[7] = checksum
                 
             return msg.frame_id, bytes(data_arr)
