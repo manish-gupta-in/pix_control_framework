@@ -185,54 +185,127 @@ def test_brake(node: ActuatorTestNode):
     log.info('Brake test COMPLETE ✓')
 
 
-def test_throttle(node: ActuatorTestNode):
+def test_throttle(node: ActuatorTestNode, safe_speed: float = None):
+    """
+    Throttle test — mirrors gear.py mode_throttle (the proven sequence).
+
+    Sequence (same as gear.py):
+      Step 0: 100% brake + steer + throttle + park OFF → wait all EnState=Auto
+      Step 1: Gear → DRIVE (3 s, still 100% brake)
+      Step 2: Release brake to 0%
+      Step 3: Ramp speed  0 → target m/s
+      Step 4: Hold speed for HOLD_SECONDS
+      Step 5: Speed → 0, 100% brake until stopped
+      Step 6: Gear → NEUTRAL, park engage
+
+    ⚠  VEHICLE MOVES. Clear 15 m+ path before running.
+    """
     log = node.get_logger()
+    target = safe_speed if safe_speed is not None else THROTTLE_TARGET
+
     log.info('═══ THROTTLE / SPEED TEST ═══')
-    log.info('⚠  CAUTION: Vehicle will move forward! Ensure 10m+ clear path ahead.')
-    log.info('⚠  VCU must be in AUTO mode (vehicle_mode=1) for DRIVE gear to engage.')
+    log.info(f'⚠  VEHICLE WILL MOVE — target speed = {target} m/s  ({target*3.6:.1f} km/h)')
+    log.info('⚠  Ensure 15 m+ clear flat path ahead and wheels chocked until Step 2.')
 
-    # Step 1: Engage DRIVE gear with brake (VCU interlock requires brake for gear shift)
-    log.info('Step 1/4: Engage DRIVE gear (brake + steer + gear=DRIVE warm-up, 5 s) …')
+    # ── Step 0: Wake all subsystems (mirrors gear.py Step 0) ──────────────────
+    # 100% brake + steer + throttle_en + park OFF → waits for all EnState=Auto
+    log.info('Step 0/6: Wake all subsystems (100% brake + steer + drive, 5 s) …')
     node.publish_for(5.0,
-                     steer_en=True,  steer_target=0.0, steer_speed=100.0,
-                     brake_en=True,  brake_target=30.0,   # VCU safety interlock
-                     gear_en=True,   gear_target=4,        # DRIVE
+                     steer_en=True,  steer_target=0.0,   steer_speed=100.0,
+                     drive_en=True,  speed_target=0.0,   accel_target=1.0,
+                     brake_en=True,  brake_target=100.0,
+                     gear_en=True,   gear_target=3,       # NEUTRAL
+                     park_en=True,   park_target=0)       # Park RELEASED
+    node.print_status()
+    log.info('  → Check: brake_en_state=1(Auto), drive_en_state=1(Auto), steer_en_state=1(Auto)')
+
+    # ── Step 1: Engage DRIVE gear (100% brake) ────────────────────────────────
+    log.info('Step 1/6: Shift to DRIVE gear (100% brake held, 3 s) …')
+    node.publish_for(3.0,
+                     steer_en=True,  steer_target=0.0,   steer_speed=100.0,
+                     drive_en=True,  speed_target=0.0,   accel_target=1.0,
+                     brake_en=True,  brake_target=100.0,
+                     gear_en=True,   gear_target=4,       # DRIVE
                      park_en=True,   park_target=0)
     node.print_status()
-    log.info('  → Check: gear_actual should now be 4 (DRIVE), mode=AUTO✓')
+    log.info('  → Check: gear_actual=4 (DRIVE). If not, STOP — do not proceed to Step 2.')
 
-    # Step 2: Release brake and ramp speed
-    log.info(f'Step 2/4: Ramp speed to {THROTTLE_TARGET} m/s (release brake) …')
-    node.publish_for(HOLD_SECONDS,
-                     drive_en=True,  speed_target=THROTTLE_TARGET, accel_target=THROTTLE_ACCEL,
+    # ── Step 2: Release brake ─────────────────────────────────────────────────
+    log.info('Step 2/6: Release brake to 0% (1 s) — VEHICLE MAY START MOVING …')
+    log.info('  ⚠  REMOVE CHOCKS NOW if stationary test confirmed above.')
+    node.publish_for(1.0,
+                     steer_en=True,  steer_target=0.0,   steer_speed=100.0,
+                     drive_en=True,  speed_target=0.0,   accel_target=1.0,
+                     brake_en=True,  brake_target=0.0,
                      gear_en=True,   gear_target=4,
-                     steer_en=True,  steer_target=0.0, steer_speed=100.0,
-                     brake_en=False, brake_target=0.0)
+                     park_en=True,   park_target=0)
+
+    # ── Step 3: Ramp speed to target ─────────────────────────────────────────
+    log.info(f'Step 3/6: Ramp speed → {target} m/s …')
+    node.publish_for(HOLD_SECONDS,
+                     steer_en=True,  steer_target=0.0,   steer_speed=100.0,
+                     drive_en=True,  speed_target=target,  accel_target=THROTTLE_ACCEL,
+                     brake_en=False, brake_target=0.0,
+                     gear_en=True,   gear_target=4,
+                     park_en=True,   park_target=0)
     node.print_status()
 
-    # Step 3: Command speed = 0, apply brake, shift to NEUTRAL
-    log.info('Step 3/4: Slow to stop (speed=0, brake=30%) …')
+    # ── Step 4: Hold speed ────────────────────────────────────────────────────
+    log.info(f'Step 4/6: Hold {target} m/s for {HOLD_SECONDS} s …')
     node.publish_for(HOLD_SECONDS,
-                     drive_en=True,  speed_target=0.0,  accel_target=0.5,
-                     brake_en=True,  brake_target=30.0,
+                     steer_en=True,  steer_target=0.0,   steer_speed=100.0,
+                     drive_en=True,  speed_target=target,  accel_target=THROTTLE_ACCEL,
+                     brake_en=False, brake_target=0.0,
                      gear_en=True,   gear_target=4,
-                     steer_en=True,  steer_target=0.0, steer_speed=100.0)
+                     park_en=True,   park_target=0)
     node.print_status()
 
-    # Step 4: Shift to NEUTRAL (still with brake engaged)
-    log.info('Step 4/4: Shift to NEUTRAL, engage park brake …')
+    # ── Step 5: SMOOTH STOP (2-phase) ─────────────────────────────────────────
+    # July 3 field data: 100% brake from 2 m/s → 3.38 m/s² decel (0.6s stop) = HARSH
+    # Fix: Phase 5a lets SpeedTarget=0 trigger VCU motor braking (~1 m/s² natural)
+    #      Phase 5b ramps brake 0→15→30% once nearly stopped (final hold only)
+    #      100% brake is reserved for Ctrl+C emergency path ONLY.
+    log.info('Step 5/6: SMOOTH stop — motor brake then gentle ramp (NOT 100% jump) …')
+
+    # Phase 5a: SpeedTarget=0, no brake — VCU motor braking decelerates naturally
+    log.info('  5a: SpeedTarget=0, brake OFF — motor braking (3 s) …')
+    node.publish_for(3.0,
+                     steer_en=True,  steer_target=0.0,   steer_speed=100.0,
+                     drive_en=True,  speed_target=0.0,   accel_target=1.0,
+                     brake_en=False, brake_target=0.0,
+                     gear_en=True,   gear_target=4,
+                     park_en=True,   park_target=0)
+    node.print_status()
+
+    # Phase 5b: gentle ramp 0 → 15 → 30% brake (2 s each step)
+    log.info('  5b: Brake ramp 0→15→30% gentle hold (4 s) …')
+    for b_pct in [15.0, 30.0]:
+        node.publish_for(2.0,
+                         steer_en=True,  steer_target=0.0,   steer_speed=100.0,
+                         drive_en=True,  speed_target=0.0,   accel_target=1.0,
+                         brake_en=True,  brake_target=b_pct,
+                         gear_en=True,   gear_target=4,
+                         park_en=True,   park_target=0)
+    node.print_status()
+
+    # ── Step 6: NEUTRAL + park engage ─────────────────────────────────────────
+    log.info('Step 6/6: Shift to NEUTRAL + engage park brake …')
     node.publish_for(2.0,
-                     brake_en=True,  brake_target=30.0,
-                     gear_en=True,   gear_target=3,     # NEUTRAL
-                     steer_en=True,  steer_target=0.0, steer_speed=100.0,
+                     steer_en=True,  steer_target=0.0,   steer_speed=100.0,
+                     drive_en=True,  speed_target=0.0,   accel_target=1.0,
+                     brake_en=True,  brake_target=50.0,  # 50% enough once stopped
+                     gear_en=True,   gear_target=3,       # NEUTRAL
                      park_en=True,   park_target=0)
     node.publish_for(2.0,
-                     brake_en=True,  brake_target=20.0,
-                     gear_en=True,   gear_target=1,     # PARK gear
-                     park_en=True,   park_target=1,     # Park brake on
-                     steer_en=True,  steer_target=0.0, steer_speed=100.0)
+                     steer_en=True,  steer_target=0.0,   steer_speed=100.0,
+                     drive_en=False, speed_target=0.0,   accel_target=1.0,
+                     brake_en=True,  brake_target=50.0,
+                     gear_en=True,   gear_target=3,
+                     park_en=True,   park_target=1)       # Park ENGAGE via 0x104
     node.print_status()
     log.info('Throttle test COMPLETE ✓')
+    log.info('  → Smooth stop: ~1 m/s² decel vs old 3.38 m/s² harsh stop')
+    log.info('  → Check: vehicle_speed=0, park_actual=1')
 
 
 def test_gear(node: ActuatorTestNode):
