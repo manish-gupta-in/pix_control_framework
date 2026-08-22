@@ -76,15 +76,17 @@ def _sum7(d: bytearray) -> int:
 
 # ── Frame builders (byte-exact, verified against gear.py working implementation) ─
 
-def build_vehicle_mode() -> bytes:
+def build_vehicle_mode(headlight: bool = False, turnlight: int = 0) -> bytes:
     """
     0x105 Vehicle_Mode_Command — SUM checksum
     Auto_Professional=1 (bit7 of byte0), Drive_ModeCtrl=1 (byte1 bits[2:0])
     Keeps VCU in autonomous mode continuously.
+    Also controls Headlight (bit 2 of byte 2) and Turnlights (bits 0-1 of byte 2).
     """
     d = bytearray(8)
     d[0] = 0x80  # Auto_Professional=1 (bit7)
     d[1] = 0x01  # Drive_ModeCtrl=1 (SPEED_DRIVE)
+    d[2] = ((1 if headlight else 0) << 2) | (turnlight & 0x03)
     d[7] = _sum7(d)
     return bytes(d)
 
@@ -119,8 +121,8 @@ def build_steer(enable: bool, angle_deg: float, angle_speed: int = 100) -> bytes
     d[0] = 0x01 if enable else 0x00
     d[1] = max(0, min(250, int(angle_speed)))
     raw = max(0, min(1000, int(round(angle_deg)) + 500))
-    d[2] = (raw >> 8) & 0xFF
-    d[3] = raw & 0xFF
+    d[3] = (raw >> 8) & 0xFF  # Motorola start_bit=31 len=16 -> msb in byte 3
+    d[4] = raw & 0xFF         # lsb in byte 4
     d[7] = _xor7(d)
     return bytes(d)
 
@@ -263,8 +265,11 @@ class PixCanTxNode(Node):
 
         # ── Build all 6 frames ──────────────────────────────────────────────
 
-        # 0x105 — always send AP=1 to keep VCU in autonomous mode
-        f105 = build_vehicle_mode()
+        # 0x105 — always send AP=1 to keep VCU in autonomous mode, plus lights
+        f105 = build_vehicle_mode(
+            headlight = bool(cmd.headlight_ctrl),
+            turnlight = int(cmd.turn_light_ctrl)
+        )
 
         # 0x102 — Steering
         f102 = build_steer(

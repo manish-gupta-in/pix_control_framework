@@ -61,6 +61,7 @@ def make_cmd(node,
              brake_en=False, brake_target=0.0,
              gear_en=False, gear_target=3,    # 3 = NEUTRAL
              park_en=False, park_target=0,    # 0 = RELEASE
+             headlight_ctrl=False, turn_light_ctrl=0,
              estop=False):
     cmd = PixControlCmd()
     cmd.header.stamp    = node.get_clock().now().to_msg()
@@ -77,6 +78,8 @@ def make_cmd(node,
     cmd.gear_target     = int(gear_target)
     cmd.park_en         = park_en
     cmd.park_target     = int(park_target)
+    cmd.headlight_ctrl  = bool(headlight_ctrl)
+    cmd.turn_light_ctrl = int(turn_light_ctrl)
     cmd.emergency_stop  = estop
     return cmd
 
@@ -407,6 +410,33 @@ def test_estop(node: ActuatorTestNode):
     log.info('E-stop test COMPLETE ✓')
 
 
+def test_lights(node: ActuatorTestNode):
+    log = node.get_logger()
+    log.info('═══ LIGHTS TEST ═══')
+    
+    log.info('Step 1/5: Headlights ON …')
+    node.publish_for(3.0, headlight_ctrl=True, turn_light_ctrl=0)
+    node.print_status()
+
+    log.info('Step 2/5: Left Turn Signal ON …')
+    node.publish_for(3.0, headlight_ctrl=False, turn_light_ctrl=1)
+    node.print_status()
+
+    log.info('Step 3/5: Right Turn Signal ON …')
+    node.publish_for(3.0, headlight_ctrl=False, turn_light_ctrl=2)
+    node.print_status()
+
+    log.info('Step 4/5: Hazard Lights ON …')
+    node.publish_for(3.0, headlight_ctrl=False, turn_light_ctrl=3)
+    node.print_status()
+    
+    log.info('Step 5/5: All Lights OFF …')
+    node.publish_for(2.0, headlight_ctrl=False, turn_light_ctrl=0)
+    node.print_status()
+    
+    log.info('Lights test COMPLETE ✓')
+
+
 def test_full(node: ActuatorTestNode):
     tests = [
         ('Steering',  test_steering),
@@ -414,6 +444,7 @@ def test_full(node: ActuatorTestNode):
         ('Gear',      test_gear),
         ('Park',      test_park),
         ('Throttle',  test_throttle),
+        ('Lights',    test_lights),
     ]
     for name, fn in tests:
         print(f'\n{"="*60}')
@@ -436,7 +467,7 @@ def main():
     parser.add_argument('--mode', choices=['sim', 'hw'], default='sim',
                         help='sim = simulator, hw = real vehicle')
     parser.add_argument('--test', choices=['steering', 'brake', 'throttle',
-                                           'gear', 'park', 'estop', 'full'],
+                                           'gear', 'park', 'lights', 'estop', 'full'],
                         default='full', help='Which test to run')
     args = parser.parse_args()
 

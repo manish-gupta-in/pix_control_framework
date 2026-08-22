@@ -1,0 +1,118 @@
+sysadmin@sysadmin-Default-string:~/Downloads/pix_control_framework_v10sysadmin@sysadmin-Default-string:~/Downloads/pix_control_framework_v10_final/pix
+_control_framework$ source /opt/ros/humble/setup.bash && sou
+rce install/setup.bash
+sysadmin@sysadmin-Default-string:~/Downloads/pix_control_framework_v10_final/pix_control_framework$ python3 scripts/actuator_test.py --mode hw --test steering
+[INFO] [1783746641.517185005] [pix_actuator_test]: Actuator Test Node ready. Mode=hw. Topic=/pix/commands/cruise_control
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  HARDWARE MODE — Commands will be sent to the real vehicle!
+  Ensure vehicle is in a SAFE, CLEAR area before proceeding.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Type YES to confirm and continue: YES
+[INFO] [1783746645.800629973] [pix_actuator_test]: ═══ STEERING TEST ═══
+[INFO] [1783746645.800793385] [pix_actuator_test]: Step 1/4: Enable steering, ramp to center …
+[INFO] [1783746647.817682671] [pix_actuator_test]: Step 2/4: Ramp RIGHT to 200.0° …
+    VCU → speed=0.00m/s | steer=-268.0° | gear=3 | park=0 | brake=0.0% | mode=AUTO✓(1)
+    ✓  VCU in AUTO mode — gear commands will be accepted.
+[INFO] [1783746654.831177334] [pix_actuator_test]: Step 3/4: Ramp LEFT to -200.0° …
+    VCU → speed=0.00m/s | steer=-12.0° | gear=3 | park=0 | brake=0.0% | mode=AUTO✓(1)
+    ✓  VCU in AUTO mode — gear commands will be accepted.
+[INFO] [1783746661.838054967] [pix_actuator_test]: Step 4/4: Return to center …
+    VCU → speed=0.00m/s | steer=-12.0° | gear=3 | park=0 | brake=0.0% | mode=AUTO✓(1)
+    ✓  VCU in AUTO mode — gear commands will be accepted.
+[INFO] [1783746668.856766895] [pix_actuator_test]: Steering test COMPLETE ✓
+sysadmin@sysadmin-Default-string:~/Downloads/pix_control_framework_v10_final/pix_control_framework$ python3 scripts/actuator_test.py --mode hw --test steering
+[INFO] [1783746671.997905052] [pix_actuator_test]: Actuator Test Node ready. Mode=hw. Topic=/pix/commands/cruise_control
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  HARDWARE MODE — Commands will be sent to the real vehicle!
+  Ensure vehicle is in a SAFE, CLEAR area before proceeding.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Type YES to confirm and continue: YES
+[INFO] [1783746674.187270192] [pix_actuator_test]: ═══ STEERING TEST ═══
+[INFO] [1783746674.188055744] [pix_actuator_test]: Step 1/4: Enable steering, ramp to center …
+[INFO] [1783746676.199416667] [pix_actuator_test]: Step 2/4: Ramp RIGHT to 200.0° …
+    VCU → speed=0.00m/s | steer=-268.0° | gear=3 | park=0 | brake=0.0% | mode=AUTO✓(1)
+    ✓  VCU in AUTO mode — gear commands will be accepted.
+[INFO] [1783746683.210203574] [pix_actuator_test]: Step 3/4: Ramp LEFT to -200.0° …
+    VCU → speed=0.00m/s | steer=-12.0° | gear=3 | park=0 | brake=0.0% | mode=AUTO✓(1)
+    ✓  VCU in AUTO mode — gear commands will be accepted.
+[INFO] [1783746690.211870549] [pix_actuator_test]: Step 4/4: Return to center …
+    VCU → speed=0.00m/s | steer=-12.0° | gear=3 | park=0 | brake=0.0% | mode=AUTO✓(1)
+    ✓  VCU in AUTO mode — gear commands will be accepted.
+[INFO] [1783746697.216581726] [pix_actuator_test]: Steering test COMPLETE ✓
+sysadmin@sysadmin-Default-string:~/Downloads/pix_control_framework_v10_final/pix_control_framework$ python3 scripts/actuator_test.py --mode hw --test brake
+[INFO] [1783746709.870607480] [pix_actuator_test]: Actuator Test Node ready. Mode=hw. Topic=/pix/commands/cruise_control
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  HARDWARE MODE — Commands will be sent to the real vehicle!
+  Ensure vehicle is in a SAFE, CLEAR area before proceeding.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Type YES to confirm and continue: YES
+[INFO] [1783746711.660097981] [pix_actuator_test]: ═══ BRAKE TEST ═══
+[INFO] [1783746711.660905462] [pix_actuator_test]: Step 1/3: Apply 30.0% brake …
+    VCU → speed=0.00m/s | steer=0.0° | gear=3 | park=0 | brake=30.0% | mode=AUTO✓(1)
+    ✓  VCU in AUTO mode — gear commands will be accepted.
+[INFO] [1783746718.666249014] [pix_actuator_test]: Step 2/3: Apply 0% brake (release) …
+    VCU → speed=0.00m/s | steer=0.0° | gear=3 | park=0 | brake=0.0% | mode=AUTO✓(1)
+    ✓  VCU in AUTO mode — gear commands will be accepted.
+[INFO] [1783746725.679406312] [pix_actuator_test]: Step 3/3: Verify brake pedal is 0% …
+    VCU → speed=0.00m/s | steer=0.0° | gear=3 | park=0 | brake=0.0% | mode=AUTO✓(1)
+    ✓  VCU in AUTO mode — gear commands will be accepted.
+[INFO] [1783746725.681091582] [pix_actuator_test]: Brake test COMPLETE ✓
+sysadmin@sysadmin-Default-string:~/Downloads/pix_control_framework_v10_final/pix_control_framework$ python3 scripts/actuator_test.py --mode hw --test gear
+[INFO] [1783746735.850765621] [pix_actuator_test]: Actuator Test Node ready. Mode=hw. Topic=/pix/commands/cruise_control
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  HARDWARE MODE — Commands will be sent to the real vehicle!
+  Ensure vehicle is in a SAFE, CLEAR area before proceeding.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Type YES to confirm and continue: YES
+[INFO] [1783746737.507063313] [pix_actuator_test]: ═══ GEAR CYCLE TEST ═══
+[INFO] [1783746737.508447128] [pix_actuator_test]: Mirrors gear.py proven sequence: 100% brake + all EnState=Auto before shift.
+[INFO] [1783746737.509206825] [pix_actuator_test]: Step 0: Wake all subsystems — 100% brake + steer + throttle (5 s) …
+[INFO] [1783746737.509882650] [pix_actuator_test]:          Waiting for brake_en=Auto, throttle_en=Auto, steer_en=Auto
+    VCU → speed=0.00m/s | steer=0.0° | gear=3 | park=0 | brake=98.6% | mode=AUTO✓(1)
+    ✓  VCU in AUTO mode — gear commands will be accepted.
+[INFO] [1783746742.511955796] [pix_actuator_test]:   → Check above: brake_en_state=1(Auto), drive_en_state=1(Auto)
+[INFO] [1783746742.512728282] [pix_actuator_test]:   → If en_states are still 3(Standby), wait and retry Step 0
+[INFO] [1783746742.513411964] [pix_actuator_test]:   → Gear → NEUTRAL (3) … (0x103: EnCtrl=1 Target=3)
+    VCU → speed=0.00m/s | steer=0.0° | gear=3 | park=0 | brake=100.0% | mode=AUTO✓(1)
+    ✓  VCU in AUTO mode — gear commands will be accepted.
+[INFO] [1783746746.527409347] [pix_actuator_test]:   → Gear → DRIVE (4) … (0x103: EnCtrl=1 Target=4)
+    VCU → speed=0.00m/s | steer=0.0° | gear=4 | park=0 | brake=98.6% | mode=AUTO✓(1)
+    ✓  VCU in AUTO mode — gear commands will be accepted.
+[INFO] [1783746750.536640789] [pix_actuator_test]:   → Gear → NEUTRAL (3) … (0x103: EnCtrl=1 Target=3)
+    VCU → speed=0.00m/s | steer=1.0° | gear=3 | park=0 | brake=98.6% | mode=AUTO✓(1)
+    ✓  VCU in AUTO mode — gear commands will be accepted.
+[INFO] [1783746754.541694491] [pix_actuator_test]:   → Gear → REVERSE (2) … (0x103: EnCtrl=1 Target=2)
+    VCU → speed=0.00m/s | steer=0.0° | gear=2 | park=0 | brake=98.6% | mode=AUTO✓(1)
+    ✓  VCU in AUTO mode — gear commands will be accepted.
+[INFO] [1783746758.553977095] [pix_actuator_test]:   → Gear → NEUTRAL (3) … (0x103: EnCtrl=1 Target=3)
+    VCU → speed=0.00m/s | steer=0.0° | gear=3 | park=0 | brake=98.6% | mode=AUTO✓(1)
+    ✓  VCU in AUTO mode — gear commands will be accepted.
+[INFO] [1783746762.557582766] [pix_actuator_test]: Gear test COMPLETE ✓
+[INFO] [1783746762.558324390] [pix_actuator_test]: NOTE: To test PARK gear, use: python3 scripts/actuator_test.py --test park
+sysadmin@sysadmin-Default-string:~/Downloads/pix_control_framework_v10_final/pix_control_framework$ python3 scripts/actuator_test.py --mode hw --test park
+[INFO] [1783746792.706085886] [pix_actuator_test]: Actuator Test Node ready. Mode=hw. Topic=/pix/commands/cruise_control
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  HARDWARE MODE — Commands will be sent to the real vehicle!
+  Ensure vehicle is in a SAFE, CLEAR area before proceeding.
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+Type YES to confirm and continue: YES
+[INFO] [1783746794.495392771] [pix_actuator_test]: ═══ PARKING BRAKE TEST ═══
+[INFO] [1783746794.496172010] [pix_actuator_test]:   → VCU warm-up: brake + steer + gear=NEUTRAL (5 s) …
+    VCU → speed=0.00m/s | steer=0.0° | gear=3 | park=0 | brake=31.4% | mode=AUTO✓(1)
+    ✓  VCU in AUTO mode — gear commands will be accepted.
+[INFO] [1783746799.506513594] [pix_actuator_test]:   → Shifting to PARK gear …
+    VCU → speed=0.00m/s | steer=0.0° | gear=3 | park=0 | brake=28.6% | mode=AUTO✓(1)
+    ✓  VCU in AUTO mode — gear commands will be accepted.
+[INFO] [1783746802.527360741] [pix_actuator_test]: Step 1/2: Release parking brake …
+    VCU → speed=0.00m/s | steer=0.0° | gear=3 | park=0 | brake=18.6% | mode=AUTO✓(1)
+    ✓  VCU in AUTO mode — gear commands will be accepted.
+[INFO] [1783746809.542311209] [pix_actuator_test]: Step 2/2: Engage parking brake …
+    VCU → speed=0.00m/s | steer=0.0° | gear=3 | park=1 | brake=18.6% | mode=AUTO✓(1)
+    ✓  VCU in AUTO mode — gear commands will be accepted.
+[INFO] [1783746816.546187529] [pix_actuator_test]: Park test COMPLETE ✓
+sysadmin@sysadmin-Default-string:~/Downloads/pix_control_framework_v10_final/pix_control_fr
