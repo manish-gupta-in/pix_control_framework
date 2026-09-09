@@ -17,7 +17,6 @@ setup(
     maintainer_email='bits@todo.todo',
     description='Object tracking and speed control mock algorithm',
     license='Apache-2.0',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'object_tracking = object_tracking.object_tracking_node:main',

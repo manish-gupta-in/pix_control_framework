@@ -1,6 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from pix_vehicle_msgs.msg import PixControlCmd, PixVehicleStatus
+from pix_control_msgs.msg import Control, GearCommand
 import threading
 
 class BaseAlgorithmInterface(Node):
@@ -11,10 +12,23 @@ class BaseAlgorithmInterface(Node):
     def __init__(self, node_name, algorithm_topic):
         super().__init__(node_name)
         
-        # Command publisher to arbitrator
+        # Command publisher to arbitrator (Legacy)
         self.cmd_pub = self.create_publisher(
             PixControlCmd,
             algorithm_topic,
+            10
+        )
+        
+        # Standard publisher
+        self.std_cmd_pub = self.create_publisher(
+            Control,
+            '/pix_framework/control_cmd',
+            10
+        )
+        
+        self.std_gear_pub = self.create_publisher(
+            GearCommand,
+            '/pix_framework/gear_cmd',
             10
         )
         
@@ -88,3 +102,26 @@ class BaseAlgorithmInterface(Node):
         cmd.emergency_stop = bool(emergency_stop)
         
         self.cmd_pub.publish(cmd)
+
+    def publish_standard_control(self,
+                                 steering_tire_angle=0.0,
+                                 steering_tire_rotation_rate=0.0,
+                                 velocity=0.0,
+                                 acceleration=0.0,
+                                 gear_command=None):
+        """
+        Publish standard control message on /pix_framework/control_cmd.
+        """
+        cmd = Control()
+        cmd.stamp = self.get_clock().now().to_msg()
+        cmd.steering_tire_angle = float(steering_tire_angle)
+        cmd.steering_tire_rotation_rate = float(steering_tire_rotation_rate)
+        cmd.velocity = float(velocity)
+        cmd.acceleration = float(acceleration)
+        self.std_cmd_pub.publish(cmd)
+        
+        if gear_command is not None:
+            gear = GearCommand()
+            gear.stamp = cmd.stamp
+            gear.command = int(gear_command)
+            self.std_gear_pub.publish(gear)

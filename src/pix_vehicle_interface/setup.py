@@ -15,17 +15,14 @@ setup(
         (os.path.join('share', package_name, 'config'), glob('config/*.dbc')),
         (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
     ],
-    install_requires=['setuptools', 'cantools', 'python-can'],
+    install_requires=['setuptools'],
     zip_safe=True,
     maintainer='bits',
     maintainer_email='bits@todo.todo',
     description='Direct CAN driver and DBC encoder/decoder interface for PIXKIT Shuttle',
     license='Apache-2.0',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'can_tx = pix_vehicle_interface.can_tx:main',
-            'can_rx = pix_vehicle_interface.can_rx:main',
         ],
     },
 )

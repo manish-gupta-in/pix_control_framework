@@ -2,7 +2,21 @@
   ros__parameters:
 
     # ── Arbitration Timeout ──────────────────────────────────────────────────
-    # If an algorithm has not published in this many seconds, it is considered
-    # inactive and the next lower priority source is selected.
-    # Must be larger than the publishing period of algorithms (20ms = 0.02s).
     active_timeout: 0.4             # seconds
+
+    # ── Priority Sources ─────────────────────────────────────────────────────
+    # EMERGENCY_STOP is an unconditional override handled in code, so it is 
+    # not in this list. The list below is from highest to lowest priority.
+    priority_sources:
+      - "STANDARD_CONTROL"
+      - "COLLISION_AVOIDANCE"
+      - "HUMAN_AVOIDANCE"
+      - "LANE_FOLLOWING"
+      - "CRUISE_CONTROL"
+
+    priority_topics:
+      - "/pix_framework/control_cmd"
+      - "/pix/commands/collision_avoidance"
+      - "/pix/commands/human_avoidance"
+      - "/pix/commands/lane_following"
+      - "/pix/commands/cruise_control"

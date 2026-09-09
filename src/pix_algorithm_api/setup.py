@@ -17,7 +17,6 @@ setup(
     maintainer_email='bits@todo.todo',
     description='Base interface and API for modular autonomous driving algorithms',
     license='Apache-2.0',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
         ],

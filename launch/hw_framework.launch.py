@@ -79,36 +79,28 @@ def generate_launch_description():
     return LaunchDescription([
         profile_arg,
 
-        # ── 1. CAN RX ─────────────────────────────────────────────────────────
-        # Decodes all VCU CAN frames → /pix/vehicle_status at 50 Hz
-        # Frames: 0x500 Throttle, 0x501 Brake, 0x502 Steer, 0x503 Gear,
-        #         0x504 Park, 0x505 VCU_Report, 0x506 WheelSpeed, 0x512 BMS
+        # ── 1. CAN Driver (C++) ───────────────────────────────────────────────
+        # SocketCAN ROS2 driver (replaces python-can layer)
         Node(
-            package='pix_vehicle_interface',
-            executable='can_rx',
-            name='can_rx',
+            package='pix_can_driver',
+            executable='pix_can_driver',
+            name='pix_can_driver',
             output='screen',
             parameters=[
-                can_rx_cfg,
-                {'can_interface': 'can4', 'loop_rate': 50.0, 'enable_can_rx': True},
+                {'can_interface': 'can4'}
             ]
         ),
 
-        # ── 2. CAN TX ─────────────────────────────────────────────────────────
-        # Encodes /pix/control_cmd → 6 CAN TX frames at 50 Hz:
-        #   0x100 Throttle, 0x101 Brake, 0x102 Steer,
-        #   0x103 Gear, 0x104 Park, 0x105 Vehicle_Mode_Command
-        # Auto_Professional=1 is ALWAYS held HIGH to signal autonomous intent.
-        # NOTE: VCU still requires physical key/remote in AUTO position to
-        # actually enter Auto Mode and accept gear commands.
+        # ── 2. Vehicle Interface (C++) ────────────────────────────────────────
+        # Core 50Hz hot-path node: encodes commands / decodes reports
+        # Replaces Python can_tx/can_rx scripts.
         Node(
-            package='pix_vehicle_interface',
-            executable='can_tx',
-            name='can_tx',
+            package='pix_vehicle_interface_cpp',
+            executable='pix_vehicle_interface',
+            name='pix_vehicle_interface_cpp',
             output='screen',
             parameters=[
-                can_tx_cfg,
-                {'can_interface': 'can4', 'loop_rate': 50.0, 'enable_can_tx': True},
+                {'can_interface': 'can4', 'loop_rate': 50.0}
             ]
         ),
 
@@ -145,10 +137,10 @@ def generate_launch_description():
             parameters=[
                 safety_cfg,
                 {
-                    'max_steer_angle':   280.0,
-                    'max_steer_rate':    150.0,
-                    'max_speed':           3.0,
-                    'max_accel':           1.0,
+                    'max_steer_angle':   500.0,
+                    'max_steer_rate':    250.0,
+                    'max_speed':           5.0,
+                    'max_accel':           3.0,
                     'watchdog_timeout':    0.3,
                 }
             ]

@@ -17,7 +17,6 @@ setup(
     maintainer_email='bits@todo.todo',
     description='Lane following algorithm interface mock',
     license='Apache-2.0',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'lane_following = lane_following.lane_following_node:main',

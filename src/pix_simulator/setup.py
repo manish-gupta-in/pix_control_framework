@@ -20,7 +20,6 @@ setup(
     maintainer_email='bits@todo.todo',
     description='Kinematic vehicle simulation and RViz visualization model for PIXKIT Shuttle',
     license='Apache-2.0',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'vehicle_simulator = pix_simulator.vehicle_simulator:main',

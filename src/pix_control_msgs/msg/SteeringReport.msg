@@ -1,0 +1,5 @@
+# PIX Framework Steering Report
+
+builtin_interfaces/Time stamp
+
+float64 steering_tire_angle  # [rad] current tire angle

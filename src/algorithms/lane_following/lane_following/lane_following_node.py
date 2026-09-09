@@ -33,20 +33,17 @@ class LaneFollowingNode(BaseAlgorithmInterface):
         # Generate dummy sinus steering command for simulation test
         steer_target = self.steer_amplitude * math.sin(2.0 * math.pi * self.steer_frequency * elapsed)
         
-        # Publish control commands
-        self.publish_control_cmd(
-            steer_target=steer_target,
-            steer_speed=120.0,
-            steer_en=True,
-            speed_target=self.speed_target,
-            accel_target=1.0,
-            drive_en=True,
-            brake_en=False,
-            brake_target=0.0,
-            gear_target=PixControlCmd.GEAR_TARGET_DRIVE,
-            gear_en=True,
-            park_target=PixControlCmd.PARK_TARGET_RELEASE,
-            park_en=True
+        # Convert degrees to radians for standard path
+        steer_target_rad = steer_target * math.pi / 180.0
+        steer_rate_rad = 120.0 * math.pi / 180.0
+        
+        # Publish control commands using the standard standard control path
+        self.publish_standard_control(
+            steering_tire_angle=steer_target_rad,
+            steering_tire_rotation_rate=steer_rate_rad,
+            velocity=self.speed_target,
+            acceleration=1.0,
+            gear_command=2  # 2=DRIVE (pix_control_msgs/GearCommand)
         )
 
 def main(args=None):
@@ -58,7 +55,11 @@ def main(args=None):
         pass
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        try:
+            if rclpy.ok():
+                rclpy.shutdown()
+        except Exception:
+            pass
 
 if __name__ == '__main__':
     main()

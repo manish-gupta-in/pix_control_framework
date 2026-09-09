@@ -227,6 +227,7 @@ class SystemStateManager(Node):
         msg.header.stamp    = self.get_clock().now().to_msg()
         msg.header.frame_id = 'base_link'
         msg.state           = self._state
+        msg.state_name      = STATE_NAMES.get(self._state, 'UNKNOWN')
         msg.reason          = self._state_reason
         msg.state_duration_secs = time.monotonic() - self._state_entry_ts
         msg.estop_latched   = self._estop_latched
@@ -245,7 +246,11 @@ def main(args=None):
         pass
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        try:
+            if rclpy.ok():
+                rclpy.shutdown()
+        except Exception:
+            pass
 
 
 if __name__ == '__main__':

@@ -5,6 +5,8 @@ from pix_vehicle_msgs.msg import PixControlCmd, PixVehicleStatus
 from std_msgs.msg import Bool
 import time
 
+from pix_safety_manager.safety_clamp_logic import SafetyClampLogic
+
 class PixSafetyManagerNode(Node):
     def __init__(self):
         super().__init__('pix_safety_manager')
@@ -21,6 +23,14 @@ class PixSafetyManagerNode(Node):
         self.max_speed = self.get_parameter('max_speed').value
         self.max_accel = self.get_parameter('max_accel').value
         self.watchdog_timeout = self.get_parameter('watchdog_timeout').value
+
+        # Pure-logic safety clamp class (no ROS deps — unit-testable)
+        self.clamp = SafetyClampLogic(
+            max_steer_angle=self.max_steer_angle,
+            max_steer_rate=self.max_steer_rate,
+            max_speed=self.max_speed,
+            max_accel=self.max_accel,
+        )
         
         # Subscriptions
         self.raw_cmd_sub = self.create_subscription(
@@ -182,40 +192,32 @@ class PixSafetyManagerNode(Node):
             self.trigger_estop("Emergency stop requested in input command")
             return
             
-        # Steering Angle Validation
-        validated_steer = max(-self.max_steer_angle, min(self.max_steer_angle, raw.steer_target))
-        
-        # Steering Rate Limiting
-        if self.last_steer_time > 0:
-            dt = now - self.last_steer_time
-            if dt > 0.001:
-                max_change = self.max_steer_rate * dt
-                steer_diff = validated_steer - self.last_steer_cmd
-                if abs(steer_diff) > max_change:
-                    direction = 1.0 if steer_diff > 0 else -1.0
-                    validated_steer = self.last_steer_cmd + direction * max_change
-                    
-        self.last_steer_cmd = validated_steer
+        # Delegated to SafetyClampLogic (pure, unit-testable)
+        dt = (now - self.last_steer_time) if self.last_steer_time > 0 else 0.02
+        validated = self.clamp.validate_command(
+            steer_target=raw.steer_target,
+            steer_speed=raw.steer_speed,
+            speed_target=raw.speed_target,
+            accel_target=raw.accel_target,
+            brake_target=raw.brake_target,
+            previous_steer=self.last_steer_cmd,
+            dt=dt,
+        )
+
+        self.last_steer_cmd = validated['steer_target']
         self.last_steer_time = now
-        
-        # Speed & Accel Validation
-        validated_speed = max(0.0, min(self.max_speed, raw.speed_target))
-        validated_accel = max(0.0, min(self.max_accel, raw.accel_target))
-        
-        # Brake Validation
-        validated_brake = max(0.0, min(100.0, raw.brake_target))
-        
+
         # Construct Safe Command
         safe_cmd.steer_en = raw.steer_en
-        safe_cmd.steer_target = validated_steer
-        safe_cmd.steer_speed = max(1.0, min(250.0, raw.steer_speed))
+        safe_cmd.steer_target = validated['steer_target']
+        safe_cmd.steer_speed = validated['steer_speed']
         
         safe_cmd.drive_en = raw.drive_en
-        safe_cmd.speed_target = validated_speed
-        safe_cmd.accel_target = validated_accel
+        safe_cmd.speed_target = validated['speed_target']
+        safe_cmd.accel_target = validated['accel_target']
         
         safe_cmd.brake_en = raw.brake_en
-        safe_cmd.brake_target = validated_brake
+        safe_cmd.brake_target = validated['brake_target']
         
         safe_cmd.gear_en = raw.gear_en
         safe_cmd.gear_target = raw.gear_target
@@ -237,7 +239,11 @@ def main(args=None):
         pass
     finally:
         node.destroy_node()
-        rclpy.shutdown()
+        try:
+            if rclpy.ok():
+                rclpy.shutdown()
+        except Exception:
+            pass
 
 if __name__ == '__main__':
     main()

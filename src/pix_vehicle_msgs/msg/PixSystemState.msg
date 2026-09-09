@@ -8,6 +8,7 @@ uint8 STATE_FAULT      = 3   # Fault detected, safe fallback active
 uint8 STATE_ESTOP      = 4   # Emergency stop latched
 
 uint8 state                   # Current system state (see constants above)
+string state_name             # Human-readable state name: MANUAL, STANDBY, AUTONOMOUS, FAULT, ESTOP
 string reason                 # Human-readable reason for state
 float64 state_duration_secs   # Time in current state (seconds)
 bool estop_latched            # True if E-stop is latched (requires manual clear)

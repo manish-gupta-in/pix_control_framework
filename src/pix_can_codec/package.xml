@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>pix_can_codec</name>
+  <version>1.1.0</version>
+  <description>
+    Hand-written CAN encode/decode for the Hooke2 VCU protocol.
+    Replaces cantools/DBC runtime dependency with direct byte manipulation.
+    Every byte offset and checksum algorithm is hardware-verified.
+  </description>
+  <maintainer email="manish@todo.todo">manish</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <test_depend>ament_cmake_gtest</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

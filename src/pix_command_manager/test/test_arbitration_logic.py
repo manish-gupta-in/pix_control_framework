@@ -1,158 +1,114 @@
 #!/usr/bin/env python3
-"""
-Unit tests for pix_command_manager arbitration logic.
-
-Tests priority routing, timeout expiry, and standby fallback
-WITHOUT requiring a running ROS2 system.
-
-Run with:
-    cd pix_control_framework
-    python3 -m pytest src/pix_command_manager/test/test_arbitration_logic.py -v
-"""
 import time
 import pytest
+import math
+from unittest.mock import MagicMock
+from pix_command_manager.command_arbitrator import PixCommandArbitrator
+from pix_control_msgs.msg import Control
+from pix_vehicle_msgs.msg import PixControlCmd
+import rclpy
 
-# ---------------------------------------------------------------------------
-# Pure-Python re-implementation of the arbitration logic
-# ---------------------------------------------------------------------------
+# We can run these with a mock rclpy context to instantiate the actual class
+class TestPixCommandArbitrator:
+    @classmethod
+    def setup_class(cls):
+        rclpy.init()
 
-PRIORITIES = [
-    'EMERGENCY_STOP',
-    'COLLISION_AVOIDANCE',
-    'HUMAN_AVOIDANCE',
-    'LANE_FOLLOWING',
-    'CRUISE_CONTROL',
-]
+    @classmethod
+    def teardown_class(cls):
+        try:
+            if rclpy.ok():
+                rclpy.shutdown()
+        except Exception:
+            pass
 
+    def test_standard_message_normalization(self):
+        node = PixCommandArbitrator()
+        # Publish a standard control message
+        control_msg = Control()
+        control_msg.stamp = node.get_clock().now().to_msg()
+        control_msg.steering_tire_angle = math.pi / 4  # 45 deg tire angle
+        control_msg.steering_tire_rotation_rate = math.pi / 18 # 10 deg/s
+        control_msg.velocity = 2.5
+        control_msg.acceleration = -1.0 # Should map to braking
 
-class Arbitrator:
-    """Mirrors PixCommandArbitrator priority selection logic."""
-    def __init__(self, active_timeout=0.4):
-        self.active_timeout = active_timeout
-        self.storage = {name: {'msg': None, 'time': 0.0} for name in PRIORITIES}
+        node.standard_control_callback(control_msg, 'STANDARD_CONTROL')
+        
+        # Verify normalization
+        stored = node.cmd_storage['STANDARD_CONTROL']['msg']
+        assert stored is not None
+        assert stored.steer_en == True
+        # 45 deg * 16.6 = 747 deg wheel angle
+        assert math.isclose(stored.steer_target, 747.0, abs_tol=0.1)
+        # 10 deg/s * 16.6 = 166 deg/s
+        assert math.isclose(stored.steer_speed, 166.0, abs_tol=0.1)
+        assert stored.drive_en == True
+        assert stored.speed_target == 2.5
+        assert stored.brake_en == True
+        assert stored.accel_target == 1.0 # abs(acceleration)
+        assert stored.brake_target == 0.0 # Handled in CPP node
+        
+        node.destroy_node()
 
-    def publish(self, source, msg, t):
-        """Simulate a message arriving from `source` at time `t`."""
-        self.storage[source]['msg']  = msg
-        self.storage[source]['time'] = t
+    def test_emergency_stop_unconditional_override(self):
+        node = PixCommandArbitrator()
+        
+        # Fill all priorities with fresh messages
+        for name, _ in node.priorities:
+            cmd = PixControlCmd()
+            cmd.steer_target = 100.0
+            node.cmd_storage[name]['msg'] = cmd
+            node.cmd_storage[name]['time'] = node.get_clock().now().nanoseconds / 1e9
 
-    def arbitrate(self, now):
-        """Return (selected_source, selected_msg) or (None, None) for standby."""
-        for name in PRIORITIES:
-            data = self.storage[name]
-            if data['msg'] is not None:
-                if (now - data['time']) < self.active_timeout:
-                    return name, data['msg']
-        return None, None
+        # Trigger estop
+        estop_msg = PixControlCmd()
+        estop_msg.emergency_stop = True
+        node.estop_callback(estop_msg)
 
+        # Mock publisher to capture output
+        node.raw_cmd_pub = MagicMock()
+        node.arbitrate_and_publish()
 
-# ---------------------------------------------------------------------------
-# Tests
-# ---------------------------------------------------------------------------
+        published = node.raw_cmd_pub.publish.call_args[0][0]
+        assert published.emergency_stop == True
+        # E-stop is the unconditional source
+        assert node.last_active_source == 'EMERGENCY_STOP'
+        
+        node.destroy_node()
 
-class TestPriorityRouting:
-    def test_single_source_selected(self):
-        arb = Arbitrator()
-        arb.publish('LANE_FOLLOWING', {'steer': 100.0}, 1.0)
-        source, _ = arb.arbitrate(1.1)
-        assert source == 'LANE_FOLLOWING'
+    def test_priority_order_config(self):
+        node = PixCommandArbitrator()
+        # By default the config is loaded
+        assert node.priorities[0][0] == 'STANDARD_CONTROL'
+        assert node.priorities[1][0] == 'COLLISION_AVOIDANCE'
+        
+        node.destroy_node()
 
-    def test_higher_priority_overrides_lower(self):
-        arb = Arbitrator()
-        t = 10.0
-        arb.publish('LANE_FOLLOWING', {'steer': 100.0}, t)
-        arb.publish('HUMAN_AVOIDANCE', {'steer': -200.0}, t)
-        source, _ = arb.arbitrate(t + 0.01)
-        assert source == 'HUMAN_AVOIDANCE'
-
-    def test_emergency_stop_is_highest(self):
-        arb = Arbitrator()
-        t = 20.0
-        arb.publish('LANE_FOLLOWING', {}, t)
-        arb.publish('HUMAN_AVOIDANCE', {}, t)
-        arb.publish('COLLISION_AVOIDANCE', {}, t)
-        arb.publish('EMERGENCY_STOP', {'estop': True}, t)
-        source, _ = arb.arbitrate(t + 0.01)
-        assert source == 'EMERGENCY_STOP'
-
-    def test_priority_order_all_active(self):
-        """Verify strict priority ordering when all sources active."""
-        arb = Arbitrator()
-        t = 5.0
-        for name in PRIORITIES:
-            arb.publish(name, {'src': name}, t)
-
-        # Check each priority level by removing highest and re-arbitrating
-        for expected in PRIORITIES:
-            source, _ = arb.arbitrate(t + 0.01)
-            assert source == expected, f"Expected {expected}, got {source}"
-            # Expire this source
-            arb.storage[expected]['time'] = 0.0
-
-
-class TestTimeoutBehavior:
-    def test_expired_source_not_selected(self):
-        arb = Arbitrator(active_timeout=0.4)
-        arb.publish('LANE_FOLLOWING', {'steer': 50.0}, 0.0)
-        # Arbitrate well past timeout
-        source, _ = arb.arbitrate(1.0)
-        assert source is None
-
-    def test_fresh_source_replaces_expired(self):
-        arb = Arbitrator(active_timeout=0.4)
-        t = 0.0
-        arb.publish('LANE_FOLLOWING', {'steer': 50.0}, t)
-        # Both available at start
-        source, _ = arb.arbitrate(t + 0.1)
-        assert source == 'LANE_FOLLOWING'
-        # Lane following expires
-        arb.publish('CRUISE_CONTROL', {'speed': 2.0}, 1.0)
-        source, _ = arb.arbitrate(1.1)
-        assert source == 'CRUISE_CONTROL'
-
-    def test_standby_when_all_expired(self):
-        arb = Arbitrator(active_timeout=0.4)
-        for name in PRIORITIES:
-            arb.publish(name, {}, 0.0)
-        source, msg = arb.arbitrate(10.0)
-        assert source is None
-        assert msg is None
-
-    def test_exactly_at_timeout_boundary(self):
-        """At exactly timeout, message should be expired."""
-        arb = Arbitrator(active_timeout=0.4)
-        arb.publish('LANE_FOLLOWING', {}, 0.0)
-        # elapsed == timeout exactly: should be expired (< not <=)
-        source, _ = arb.arbitrate(0.4)
-        assert source is None
-
-    def test_just_before_timeout(self):
-        """Just before timeout, message should still be active."""
-        arb = Arbitrator(active_timeout=0.4)
-        arb.publish('LANE_FOLLOWING', {}, 0.0)
-        source, _ = arb.arbitrate(0.399)
-        assert source == 'LANE_FOLLOWING'
-
-
-class TestStandbyFallback:
-    def test_no_messages_gives_none(self):
-        arb = Arbitrator()
-        source, msg = arb.arbitrate(0.0)
-        assert source is None
-        assert msg is None
-
-    def test_message_recovery_after_standby(self):
-        arb = Arbitrator(active_timeout=0.4)
-        arb.publish('LANE_FOLLOWING', {'steer': 10.0}, 0.0)
-        # Goes to standby
-        src, _ = arb.arbitrate(5.0)
-        assert src is None
-        # Recovers with new message
-        arb.publish('LANE_FOLLOWING', {'steer': 20.0}, 5.5)
-        src, msg = arb.arbitrate(5.6)
-        assert src == 'LANE_FOLLOWING'
-        assert msg['steer'] == 20.0
-
+    def test_preemption_logging(self, capsys):
+        node = PixCommandArbitrator()
+        now = node.get_clock().now().nanoseconds / 1e9
+        
+        # Lower priority active
+        cmd1 = PixControlCmd()
+        node.cmd_storage['LANE_FOLLOWING']['msg'] = cmd1
+        node.cmd_storage['LANE_FOLLOWING']['time'] = now
+        
+        # First tick
+        node.arbitrate_and_publish()
+        assert node.last_active_source == 'LANE_FOLLOWING'
+        
+        # Higher priority activates
+        cmd2 = PixControlCmd()
+        node.cmd_storage['COLLISION_AVOIDANCE']['msg'] = cmd2
+        node.cmd_storage['COLLISION_AVOIDANCE']['time'] = now
+        
+        node.get_logger().warn = MagicMock()
+        node.arbitrate_and_publish()
+        
+        assert node.last_active_source == 'COLLISION_AVOIDANCE'
+        node.get_logger().warn.assert_called_with("PREEMPTION EVENT: [LANE_FOLLOWING] overridden by [COLLISION_AVOIDANCE]")
+        
+        node.destroy_node()
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

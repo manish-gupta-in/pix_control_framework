@@ -20,7 +20,6 @@ setup(
     maintainer_email='bits@todo.todo',
     description='Vision-based lateral person avoidance algorithm using YOLOv8',
     license='Apache-2.0',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'yolo_avoidance = yolo_person_avoidance.yolo_avoidance_node:main',

@@ -20,7 +20,6 @@ setup(
     maintainer_email='bits@todo.todo',
     description='Command router and priority-based command arbitration node',
     license='Apache-2.0',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'command_arbitrator = pix_command_manager.command_arbitrator:main',

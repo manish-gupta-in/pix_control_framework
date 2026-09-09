@@ -1,0 +1,11 @@
+# PIX Framework Control Mode Command Service
+# Service name: /pix/control_mode_request (never /control/control_mode_request)
+
+uint8 AUTONOMOUS = 1
+uint8 AUTONOMOUS_STEER_ONLY = 2
+uint8 AUTONOMOUS_VELOCITY_ONLY = 3
+uint8 MANUAL = 4
+uint8 NO_COMMAND = 5
+uint8 mode
+---
+bool success

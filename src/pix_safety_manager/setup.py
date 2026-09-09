@@ -20,7 +20,6 @@ setup(
     maintainer_email='bits@todo.todo',
     description='Safety supervision layer, watchdogs, command validation and E-stop handling',
     license='Apache-2.0',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'safety_manager = pix_safety_manager.safety_manager_node:main',
