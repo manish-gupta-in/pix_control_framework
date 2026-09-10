@@ -8,7 +8,7 @@
     Independent message types under the pix_control_msgs namespace.
     Zero namespace collision with any external packages.
   </description>
-  <maintainer email="manish@todo.todo">manish</maintainer>
+  <maintainer email="manishgupta9479@gmail.com">Manish Gupta</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

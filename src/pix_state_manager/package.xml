@@ -3,7 +3,7 @@
   <name>pix_state_manager</name>
   <version>1.0.0</version>
   <description>System state machine manager for PIXKIT control framework</description>
-  <maintainer email="pix@example.com">PIX Control Framework</maintainer>
+  <maintainer email="manishgupta9479@gmail.com">Manish Gupta</maintainer>
   <license>MIT</license>
 
   <depend>rclpy</depend>

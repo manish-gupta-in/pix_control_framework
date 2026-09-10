@@ -9,7 +9,7 @@ setup(
         (os.path.join('share', package_name, 'profiles'), glob.glob(os.path.join('profiles', '*.yaml'))),
     ],
     install_requires=['setuptools'], zip_safe=True,
-    maintainer='PIX Control Framework', maintainer_email='pix@example.com',
+    maintainer='Manish Gupta', maintainer_email='manishgupta9479@gmail.com',
     description='Configuration profile manager for PIXKIT', license='MIT',
     entry_points={'console_scripts': ['config_manager = pix_config_manager.config_manager_node:main']},
 )

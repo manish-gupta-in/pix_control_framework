@@ -8,7 +8,7 @@
     Adapted from the production can_driver package for SocketCAN-only operation.
     Publishes on /pix_framework/can_tx, subscribes to /pix_framework/can_rx.
   </description>
-  <maintainer email="manish@todo.todo">manish</maintainer>
+  <maintainer email="manishgupta9479@gmail.com">Manish Gupta</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

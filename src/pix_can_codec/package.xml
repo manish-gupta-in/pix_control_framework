@@ -8,7 +8,7 @@
     Replaces cantools/DBC runtime dependency with direct byte manipulation.
     Every byte offset and checksum algorithm is hardware-verified.
   </description>
-  <maintainer email="manish@todo.todo">manish</maintainer>
+  <maintainer email="manishgupta9479@gmail.com">Manish Gupta</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

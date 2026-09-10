@@ -1,0 +1,27 @@
+straight_drive_planner:
+  ros__parameters:
+    speed: 1.5   # Speed in m/s for the straight test (approx 5.4 km/h)
+    # 1.5 m/s is equal to in km/h as 1.5 * 3.6 = 5.4 km/h
+    # 2.5 m/s is equal to in km/h as 2.5 * 3.6 = 9.0 km/h
+    # 3.0 m/s is equal to in km/h as 3.0 * 3.6 = 10.8 km/h
+    # 5.0 m/s is equal to in km/h as 5.0 * 3.6 = 18.0 km/h
+    # 8.0 m/s is equal to in km/h as 8.0 * 3.6 = 28.8 km/h
+    # 10.0 m/s is equal to in km/h as 10.0 * 3.6 = 36.0 km/h
+
+
+aeb_node:
+  ros__parameters:
+    ttc_threshold: 2.0  # Time to collision in seconds. Higher = brakes earlier.
+
+lateral_avoidance_planner:
+  ros__parameters:
+    driving_speed: 2.0         # Normal driving speed in m/s
+    avoidance_gain: 35.0       # Steering degrees per unit of person offset
+    max_avoidance_angle: 150.0 # Maximum allowed steering wheel angle
+    deadband: 0.1              # Ignore offsets smaller than this
+    hold_time: 1.0             # Seconds to hold steering after person disappears
+
+yolo_perception:
+  ros__parameters:
+    model_path: "yolov8n.pt"
+    camera_topic: "/camera/right/image"

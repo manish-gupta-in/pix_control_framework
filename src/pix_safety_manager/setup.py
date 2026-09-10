@@ -16,8 +16,8 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='bits',
-    maintainer_email='bits@todo.todo',
+    maintainer='Manish Gupta',
+    maintainer_email='manishgupta9479@gmail.com',
     description='Safety supervision layer, watchdogs, command validation and E-stop handling',
     license='Apache-2.0',
     entry_points={

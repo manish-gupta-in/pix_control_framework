@@ -17,8 +17,8 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='bits',
-    maintainer_email='bits@todo.todo',
+    maintainer='Manish Gupta',
+    maintainer_email='manishgupta9479@gmail.com',
     description='Direct CAN driver and DBC encoder/decoder interface for PIXKIT Shuttle',
     license='Apache-2.0',
     entry_points={

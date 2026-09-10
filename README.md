@@ -1,6 +1,6 @@
-# PIX Control Framework (PCF) - v12.0
+# PIX Control Framework (PCF) - v15.0
 
-A complete modular autonomous vehicle control framework that is independent of any specific vehicle manufacturer. This is the **v12.0** release.
+A complete modular autonomous vehicle control framework that is independent of any specific vehicle manufacturer. This is the **v15.0** release.
 
 ## Overview
 PIX Control Framework provides a clean, scalable, modular architecture where autonomous driving algorithms remain completely independent from hardware-specific implementations. The framework supports multiple drive-by-wire (DBW) vehicles using a common API and standardized interfaces.

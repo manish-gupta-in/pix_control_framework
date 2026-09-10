@@ -4,7 +4,7 @@
   <name>pix_algorithm_api</name>
   <version>1.0.0</version>
   <description>Base interface and API for modular autonomous driving algorithms</description>
-  <maintainer email="bits@todo.todo">bits</maintainer>
+  <maintainer email="manishgupta9479@gmail.com">Manish Gupta</maintainer>
   <license>Apache-2.0</license>
 
   <depend>rclpy</depend>

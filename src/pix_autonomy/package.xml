@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>pix_autonomy</name>
+  <version>0.0.1</version>
+  <description>PIX Control Framework autonomy stack with GNSS, AEB, MPC, and YOLO templates.</description>
+  <maintainer email="manishgupta9479@gmail.com">Manish Gupta</maintainer>
+  <license>MIT</license>
+
+  <depend>rclpy</depend>
+  <depend>pix_vehicle_msgs</depend>
+  <depend>pix_control_msgs</depend>
+  <depend>pix_algorithm_api</depend>
+  <depend>std_msgs</depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

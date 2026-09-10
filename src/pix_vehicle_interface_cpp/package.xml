@@ -9,7 +9,7 @@
     Uses pix_can_codec for direct byte-level CAN encode/decode.
     Publishes standardized reports on /pix_framework/* topics.
   </description>
-  <maintainer email="manish@todo.todo">manish</maintainer>
+  <maintainer email="manishgupta9479@gmail.com">Manish Gupta</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>

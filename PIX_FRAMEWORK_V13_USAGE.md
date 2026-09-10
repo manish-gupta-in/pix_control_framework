@@ -1,4 +1,4 @@
-# PIX Control Framework v12 — Complete Usage & Reference Guide
+# PIX Control Framework v13 — Complete Usage & Reference Guide
 
 ## Table of Contents
 1. [Architecture Overview](#1-architecture-overview)
@@ -16,7 +16,7 @@
 
 ## 1. Architecture Overview
 
-The PIX Control Framework v12 is a modular, standard ROS2 workspace for autonomous control of the PIXKIT DTV shuttle. It provides:
+The PIX Control Framework v13 is a modular, standard ROS2 workspace for autonomous control of the PIXKIT DTV shuttle. It provides:
 
 - **C++ CAN Codec** (`pix_can_codec`): Hand-written, zero-allocation byte-level CAN encoder/decoder.
 - **C++ CAN Driver** (`pix_can_driver`): Multi-threaded SocketCAN driver for CAN4.
@@ -122,14 +122,14 @@ These are enforced in `pix_safety_manager` and configured in `launch/hw_framewor
 ### Step 1: Transfer to Vehicle
 ```bash
 # On your dev machine
-scp pix_control_framework_v12.zip vehicle_user@192.168.x.x:~/
+scp pix_control_framework_v13.zip vehicle_user@192.168.x.x:~/
 ```
 
 ### Step 2: Unzip and Build
 ```bash
 # On the vehicle computer
 cd ~
-unzip pix_control_framework_v12.zip
+unzip pix_control_framework_v13.zip
 cd pix_control_framework
 
 # Build (can_msgs is pre-installed on the vehicle)

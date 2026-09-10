@@ -4,7 +4,7 @@
   <name>object_tracking</name>
   <version>1.0.0</version>
   <description>Object tracking and speed control mock algorithm</description>
-  <maintainer email="bits@todo.todo">bits</maintainer>
+  <maintainer email="manishgupta9479@gmail.com">Manish Gupta</maintainer>
   <license>Apache-2.0</license>
 
   <depend>rclpy</depend>

@@ -16,8 +16,8 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='bits',
-    maintainer_email='bits@todo.todo',
+    maintainer='Manish Gupta',
+    maintainer_email='manishgupta9479@gmail.com',
     description='Kinematic vehicle simulation and RViz visualization model for PIXKIT Shuttle',
     license='Apache-2.0',
     entry_points={

@@ -9,7 +9,7 @@ setup(
         (os.path.join('share', package_name, 'config'), glob.glob(os.path.join('config', '*.yaml'))),
     ],
     install_requires=['setuptools'], zip_safe=True,
-    maintainer='PIX Control Framework', maintainer_email='pix@example.com',
+    maintainer='Manish Gupta', maintainer_email='manishgupta9479@gmail.com',
     description='Logging framework for PIXKIT', license='MIT',
     entry_points={'console_scripts': ['logger_node = pix_logger.logger_node:main']},
 )

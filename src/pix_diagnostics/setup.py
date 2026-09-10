@@ -15,8 +15,8 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='PIX Control Framework',
-    maintainer_email='pix@example.com',
+    maintainer='Manish Gupta',
+    maintainer_email='manishgupta9479@gmail.com',
     description='Diagnostics framework for PIXKIT',
     license='MIT',
     entry_points={
