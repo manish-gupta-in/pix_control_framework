@@ -37,63 +37,69 @@ The framework is organised into four independent layers. Each layer communicates
 
 ```mermaid
 graph TB
-    subgraph PHYS["① Physical Layer — PIXKIT DTV"]
-        VCU["VCU (Drive-by-Wire)"]
-        CAN["CAN Bus (can4, 500kbps)"]
+    subgraph PHYS["Layer 1 - Physical - PIXKIT DTV"]
+        VCU["VCU Drive-by-Wire"]
+        CAN["CAN Bus can4 500kbps"]
     end
 
-    subgraph CANL["② CAN Layer (C++)"]
-        CODEC["pix_can_codec\n(encode / decode)"]
-        DRIVER["pix_can_driver\n(SocketCAN ↔ ROS 2)"]
-        IFACE["pix_vehicle_interface_cpp\n(50 Hz CAN loop)"]
-        MSGS_V["pix_vehicle_msgs\n(PixControlCmd, PixVehicleStatus)"]
-        MSGS_C["pix_control_msgs\n(Control, GearCommand, ControlModeReport…)"]
+    subgraph CANL["Layer 2 - CAN Interface C++"]
+        CODEC["pix_can_codec"]
+        DRIVER["pix_can_driver"]
+        IFACE["pix_vehicle_interface_cpp 50Hz"]
+        MSGS_V["pix_vehicle_msgs"]
+        MSGS_C["pix_control_msgs"]
     end
 
-    subgraph CORE["③ Core Framework (Python)"]
-        ARB["pix_command_manager\n(Priority Arbitrator)"]
-        SAFE["pix_safety_manager\n(Clamp + Watchdog)"]
-        STATE["pix_state_manager\n(STANDBY / AUTO / FAULT FSM)"]
-        CFG["pix_config_manager\n(Profile Loader)"]
-        DIAG["pix_diagnostics\n(/diagnostics aggregator)"]
-        LOG["pix_logger\n(CSV Telemetry)"]
+    subgraph CORE["Layer 3 - Core Framework Python"]
+        ARB["pix_command_manager Priority Arbitrator"]
+        SAFE["pix_safety_manager Clamp and Watchdog"]
+        STATE["pix_state_manager FSM"]
+        CFG["pix_config_manager Profile Loader"]
+        DIAG["pix_diagnostics"]
+        LOG["pix_logger CSV"]
     end
 
-    subgraph AUTO["④ Autonomy Layer (Python)"]
-        direction TB
-        PERC["yolo_perception_node\n(Sense)"]
-        AEB["aeb_node\n(Plan – Emergency)"]
-        MPC["mpc_planner_node\n(Plan – Smooth)"]
-        GNSS["gnss_waypoint_follower\n(Plan – Navigation)"]
-        STR["straight_drive_node\n(Plan – Simple)"]
-        LAT["lateral_avoidance_node\n(Plan – Avoidance)"]
-        ARBAUTO["control_arbitrator_node\n(Act – Priority MUX)"]
+    subgraph AUTO["Layer 4 - Autonomy Stack Python"]
+        PERC["yolo_perception_node Sense"]
+        AEB["aeb_node Emergency Brake"]
+        MPC["mpc_planner_node Smooth Path"]
+        GNSS["gnss_waypoint_follower Navigation"]
+        STR["straight_drive_node Constant Speed"]
+        LAT["lateral_avoidance_node Obstacle Steer"]
+        ARBAUTO["control_arbitrator_node Priority MUX"]
     end
 
-    subgraph ALGOS["⑤ Algorithm Layer (Python)"]
-        API["pix_algorithm_api\n(BaseAlgorithmInterface)"]
+    subgraph ALGOS["Layer 5 - Algorithm Plugins Python"]
+        API["pix_algorithm_api BaseAlgorithmInterface"]
         LF["lane_following"]
         OT["object_tracking"]
         YA["yolo_person_avoidance"]
     end
 
-    VCU <-->|CAN frames| CAN
-    CAN <-->|SocketCAN| DRIVER
+    VCU -->|CAN frames| CAN
+    CAN -->|SocketCAN| DRIVER
     DRIVER --- CODEC
     CODEC --- IFACE
-    IFACE -->|/pix/vehicle_status| CORE
-    IFACE <--|/pix/control_cmd| SAFE
+    IFACE -->|vehicle_status| CORE
+    SAFE -->|control_cmd| IFACE
 
-    ARB -->|/pix/raw_control_cmd| SAFE
-    SAFE -->|/pix/control_cmd| IFACE
+    ARB -->|raw_control_cmd| SAFE
+    SAFE -->|control_cmd| IFACE
     STATE --- ARB
     CFG --- ARB
     DIAG --- STATE
     LOG --- IFACE
 
-    AUTO -->|/pix_autonomy/*_cmd| ARB
-    API --- AUTO
-    ALGOS -->|/pix/commands/*| ARB
+    ARBAUTO -->|raw_control_cmd| ARB
+    API --- PERC
+    API --- AEB
+    API --- MPC
+    API --- GNSS
+    API --- STR
+    API --- LAT
+    LF -->|commands| ARB
+    OT -->|commands| ARB
+    YA -->|commands| ARB
 ```
 
 ---
@@ -104,21 +110,21 @@ The complete command pipeline from algorithm to wheel:
 
 ```mermaid
 sequenceDiagram
-    participant A as Algorithm Node<br/>(any planner)
-    participant ARB as pix_command_manager<br/>(Arbitrator)
-    participant SAFE as pix_safety_manager<br/>(Safety Clamp)
-    participant IFACE as pix_vehicle_interface_cpp<br/>(CAN Encoder)
-    participant VCU as PIXKIT VCU<br/>(CAN Bus)
+    participant A as Algorithm Node
+    participant ARB as pix_command_manager
+    participant SAFE as pix_safety_manager
+    participant IFACE as pix_vehicle_interface_cpp
+    participant VCU as PIXKIT VCU
 
-    A->>ARB: /pix_autonomy/<algo>_cmd  [PixControlCmd]
-    Note over ARB: Priority: AEB > Joy > MPC > GNSS > Straight
-    ARB->>SAFE: /pix/raw_control_cmd  [PixControlCmd]
-    Note over SAFE: Clamp steering ±500°, speed 0–5 m/s<br/>Watchdog 300 ms timeout → E-stop
-    SAFE->>IFACE: /pix/control_cmd  [PixControlCmd]
-    Note over IFACE: 50 Hz encode loop, pure CAN encoder
-    IFACE->>VCU: CAN frame (can4, 500 kbps)
-    VCU-->>IFACE: CAN frame (vehicle status)
-    IFACE-->>A: /pix/vehicle_status  [PixVehicleStatus]
+    A->>ARB: /pix_autonomy/algo_cmd PixControlCmd
+    Note over ARB: Priority AEB then Joy then MPC then GNSS then Straight
+    ARB->>SAFE: /pix/raw_control_cmd PixControlCmd
+    Note over SAFE: Clamp steering speed brake. Watchdog 300ms timeout fires E-stop
+    SAFE->>IFACE: /pix/control_cmd PixControlCmd
+    Note over IFACE: 50 Hz encode loop pure CAN encoder no arbitration
+    IFACE->>VCU: CAN frame can4 500kbps
+    VCU-->>IFACE: CAN frame vehicle status
+    IFACE-->>A: /pix/vehicle_status PixVehicleStatus
 ```
 
 ---

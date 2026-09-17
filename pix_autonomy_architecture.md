@@ -35,32 +35,32 @@ This separation means any perception algorithm can feed any planner, and any pla
 
 ```mermaid
 flowchart TD
-    subgraph SENSE["🔵 SENSE — Perception Layer"]
-        CAM["Camera\n/camera/right/image"]
-        GNSS_HW["GNSS Sensor\n/localization/pose"]
-        CAM --> YOLO["yolo_perception_node\nDetects persons, computes obstacle distances"]
-        GNSS_HW --> GNSS_NODE["gnss_waypoint_follower\nReads pose, computes Pure Pursuit steering"]
+    subgraph SENSE["SENSE - Perception Layer"]
+        CAM["Camera /camera/right/image"]
+        GNSS_HW["GNSS Sensor /localization/pose"]
+        CAM --> YOLO["yolo_perception_node"]
+        GNSS_HW --> GNSS_NODE["gnss_waypoint_follower Pure Pursuit"]
     end
 
-    subgraph PLAN["🟡 PLAN — Decision & Planning Layer"]
-        YOLO -->|/perception/obstacles\nFloat32MultiArray| AEB["aeb_node\n⚡ Emergency Braking\nTTC < threshold → full brake"]
-        YOLO -->|/perception/obstacles| LAT["lateral_avoidance_node\nSteers away from obstacles"]
-        GNSS_NODE -->|/pix_autonomy/gnss_cmd\nPixControlCmd| ARBAUTO
-        STRAIGHT["straight_drive_node\nDrives at constant speed"] -->|/pix_autonomy/straight_cmd| ARBAUTO
-        MPC["mpc_planner_node\nModel Predictive Control\n(boilerplate)"] -->|/pix_autonomy/mpc_cmd| ARBAUTO
-        AEB -->|/pix_autonomy/aeb_cmd| ARBAUTO
-        LAT -->|/pix_autonomy/lateral_cmd| ARBAUTO
+    subgraph PLAN["PLAN - Decision and Planning Layer"]
+        YOLO -->|perception/obstacles| AEB["aeb_node Emergency Braking"]
+        YOLO -->|perception/obstacles| LAT["lateral_avoidance_node"]
+        GNSS_NODE -->|gnss_cmd| ARBAUTO
+        STRAIGHT["straight_drive_node Constant Speed"] -->|straight_cmd| ARBAUTO
+        MPC["mpc_planner_node MPC Planner"] -->|mpc_cmd| ARBAUTO
+        AEB -->|aeb_cmd| ARBAUTO
+        LAT -->|lateral_cmd| ARBAUTO
     end
 
-    subgraph ACT["🔴 ACT — Control & Safety Layer"]
-        ARBAUTO["control_arbitrator_node\nPriority MUX\nAEB > Joy > MPC > GNSS > Lateral > Straight"]
-        ARBAUTO -->|/pix/raw_control_cmd| SAFE["pix_safety_manager\nClamp · Rate-limit · Watchdog · E-stop"]
-        SAFE -->|/pix/control_cmd| IFACE["pix_vehicle_interface_cpp\n50 Hz CAN Encoder"]
-        IFACE -->|CAN frames| VCU["PIXKIT VCU\n(Drive-by-Wire)"]
+    subgraph ACT["ACT - Control and Safety Layer"]
+        ARBAUTO["control_arbitrator_node Priority MUX"]
+        ARBAUTO -->|raw_control_cmd| SAFE["pix_safety_manager Clamp Watchdog E-stop"]
+        SAFE -->|control_cmd| IFACE["pix_vehicle_interface_cpp 50Hz CAN Encoder"]
+        IFACE -->|CAN frames| VCU["PIXKIT VCU Drive-by-Wire"]
     end
 
-    VCU -->|/pix/vehicle_status| SENSE
-    VCU -->|/pix/vehicle_status| PLAN
+    VCU -->|vehicle_status| SENSE
+    VCU -->|vehicle_status| PLAN
 ```
 
 ---
