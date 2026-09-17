@@ -13,7 +13,7 @@ class LateralAvoidancePlanner(BaseAlgorithmInterface):
     Uses a proportional controller with ramping logic.
     """
     def __init__(self):
-        super().__init__('lateral_avoidance_planner', '/pix_autonomy/lateral_cmd')
+        super().__init__('lateral_avoidance_planner', '/pix/commands/human_avoidance')
         
         # Adjustable parameters
         self.declare_parameter('driving_speed', 2.0)      # m/s

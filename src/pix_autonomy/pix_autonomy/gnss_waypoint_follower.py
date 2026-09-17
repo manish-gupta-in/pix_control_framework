@@ -12,7 +12,7 @@ class GNSSWaypointFollower(BaseAlgorithmInterface):
     Reads waypoints from a TXT file and pushes commands.
     """
     def __init__(self):
-        super().__init__('gnss_waypoint_follower', '/pix_autonomy/gnss_cmd')
+        super().__init__('gnss_waypoint_follower', '/pix/commands/lane_following')
         
         # Load Waypoints
         self.declare_parameter('waypoint_file', 'waypoints.txt')

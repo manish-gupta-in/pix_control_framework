@@ -10,7 +10,7 @@ class AEBSystemNode(BaseAlgorithmInterface):
     Reads obstacle distances from YOLO perception and overrides control if collision is imminent.
     """
     def __init__(self):
-        super().__init__('aeb_system', '/pix_autonomy/aeb_cmd')
+        super().__init__('aeb_system', '/pix/commands/collision_avoidance')
         
         self.declare_parameter('ttc_threshold', 2.0) # Time to collision (seconds)
         self.ttc_threshold = self.get_parameter('ttc_threshold').value

@@ -8,13 +8,6 @@ def generate_launch_description():
     params_file = os.path.join(config_dir, 'autonomy_params.yaml')
 
     return LaunchDescription([
-        # 1. The Traffic Cop
-        Node(
-            package='pix_autonomy',
-            executable='control_arbitrator_node',
-            name='control_arbitrator',
-            output='screen'
-        ),
         # 2. The Eyes
         Node(
             package='pix_autonomy',

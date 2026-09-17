@@ -9,7 +9,7 @@ class MPCPlannerNode(BaseAlgorithmInterface):
     Solves for the optimal trajectory (steer, speed) over a prediction horizon.
     """
     def __init__(self):
-        super().__init__('mpc_planner', '/pix_autonomy/mpc_cmd')
+        super().__init__('mpc_planner', '/pix/commands/cruise_control')
         self.timer = self.create_timer(0.05, self.plan_trajectory)
         
     def plan_trajectory(self):

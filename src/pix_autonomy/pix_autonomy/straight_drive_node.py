@@ -8,7 +8,7 @@ class StraightDriveNode(BaseAlgorithmInterface):
     Commands a constant speed and 0 steering.
     """
     def __init__(self):
-        super().__init__('straight_drive_planner', '/pix_autonomy/straight_cmd')
+        super().__init__('straight_drive_planner', '/pix/commands/lane_following')
         
         self.declare_parameter('speed', 1.5) # m/s
         self.speed = self.get_parameter('speed').value

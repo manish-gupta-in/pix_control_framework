@@ -105,7 +105,9 @@ class YOLOPerceptionNode(Node):
             self.pub.publish(out_msg)
             
             # Display the camera window
-            cv2.imshow("YOLO Perception", frame)
+            # Resize it so it fits nicely on screen
+            display_frame = cv2.resize(frame, (800, 600))
+            cv2.imshow("YOLO Perception", display_frame)
             cv2.waitKey(1)
             
         except Exception as e:
