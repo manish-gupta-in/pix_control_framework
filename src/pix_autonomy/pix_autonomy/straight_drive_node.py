@@ -22,7 +22,8 @@ class StraightDriveNode(BaseAlgorithmInterface):
             drive_en=True, speed_target=self.speed, accel_target=1.0,
             steer_en=True, steer_target=0.0, steer_speed=150.0,
             brake_en=False, brake_target=0.0, 
-            gear_en=True, gear_target=4 # 4 = DRIVE
+            gear_en=True, gear_target=4, # 4 = DRIVE
+            park_en=True, park_target=0  # 0 = RELEASE
         )
 
 def main(args=None):

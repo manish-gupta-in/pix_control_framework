@@ -1,6 +1,6 @@
 # PIX AEB & Straight-Line Test Manual
 
-> **Version:** v16.0 | **Vehicle:** PIXKIT DTV | **Framework:** PIX Control Framework v16  
+> **Version:** v17.0 | **Vehicle:** PIXKIT DTV | **Framework:** PIX Control Framework v17  
 > **Procedure:** 50-metre straight-line drive with Autonomous Emergency Braking active
 
 ---
