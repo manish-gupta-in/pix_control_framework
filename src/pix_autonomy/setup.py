@@ -28,7 +28,6 @@ setup(
             'aeb_node = pix_autonomy.aeb_node:main',
             'mpc_planner_node = pix_autonomy.mpc_planner_node:main',
             'yolo_perception_node = pix_autonomy.yolo_perception_node:main',
-            'control_arbitrator_node = pix_autonomy.control_arbitrator_node:main',
             'lateral_avoidance_node = pix_autonomy.lateral_avoidance_node:main',
             'straight_drive_node = pix_autonomy.straight_drive_node:main',
         ],

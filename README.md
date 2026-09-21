@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![C++](https://img.shields.io/badge/C++-17-00599C?logo=cplusplus&logoColor=white)](https://isocpp.org/)
 [![License](https://img.shields.io/badge/License-Proprietary-red)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-v17.0-brightgreen)](https://github.com/manish-gupta-in/pix_control_framework/releases/tag/v17.0)
+[![Version](https://img.shields.io/badge/Version-v18.0-brightgreen)](https://github.com/manish-gupta-in/pix_control_framework/releases/tag/v18.0)
 [![Platform](https://img.shields.io/badge/Platform-PIXKIT%20DTV-orange)](https://www.pixmoving.com/)
 
 **A modular, safety-first ROS 2 framework for autonomous control of the PIXKIT Drive-by-Wire shuttle.**  
@@ -183,7 +183,7 @@ pix_control_framework/
 │   ├── pix_command_manager/          # Python: Priority arbitrator
 │   ├── pix_safety_manager/           # Python: Safety clamping
 │   ├── pix_algorithm_api/            # Python: Algorithm base class
-│   ├── pix_autonomy/                 # Python: Full autonomy stack (v17)
+│   ├── pix_autonomy/                 # Python: Full autonomy stack (v18)
 │   │   ├── pix_autonomy/
 │   │   │   ├── aeb_node.py
 │   │   │   ├── yolo_perception_node.py
@@ -339,7 +339,8 @@ colcon test-result --test-result-base build/pix_safety_manager --verbose
 
 | Version | Date | Highlights |
 |---|---|---|
-| **v17.0** | 2026-09 | `straight_drive_node`: park brake release command (`park_en=True, park_target=0`) added on drive start. |
+| **v18.0** | 2026-09 | `pix_autonomy/setup.py`: added missing `control_arbitrator_node` entry point; `test_imports.py` import coverage extended. |
+| v17.0 | 2026-09 | `straight_drive_node`: park brake release command (`park_en=True, park_target=0`) added on drive start. |
 | v16.0 | 2026-09 | `pix_autonomy` package: AEB, YOLO Perception, GNSS Waypoint Follower, MPC Planner, Lateral Avoidance, Straight Drive, Control Arbitrator. Full Sense→Plan→Act stack. |
 | v15.0 | 2026-08 | Unified command pipeline — single `/pix/raw_control_cmd` topic, dual-message-type arbitrator, watchdog, stale-doc cleanup |
 | v12.0 | 2026-07 | `pix_control_msgs` standard message types, C++ vehicle interface (pure encoder), `pix_can_driver` |
