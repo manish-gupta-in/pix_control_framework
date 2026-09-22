@@ -1,4 +1,4 @@
-# PIX Autonomy Architecture Guide (v14)
+# PIX Autonomy Architecture Guide (v19)
 
 This guide explains the industry-standard **Sense → Plan → Act** architecture implemented in the
 `pix_autonomy` ROS2 package and how to integrate new algorithms into the PIX Control Framework.
