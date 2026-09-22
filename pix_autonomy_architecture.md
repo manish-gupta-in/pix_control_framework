@@ -12,28 +12,28 @@ the wheels. Data flows through specialized layers before reaching the VCU:
 
 ```mermaid
 graph TD
-    subgraph SENSE [Perception Layer]
-        YOLO(YOLO Node) -->|pub: /perception/obstacles| O[Obstacle Array]
-        GNSS(GNSS Sensor) -->|pub: /localization/pose| P[Vehicle Pose X,Y,Yaw]
+    subgraph SENSE["Perception Layer"]
+        YOLO["YOLO Node"] -->|perception/obstacles| O["Obstacle Array"]
+        GNSS["GNSS Sensor"] -->|localization/pose| P["Vehicle Pose X Y Yaw"]
     end
 
-    subgraph PLAN [Decision & Planning Layer]
-        O --> AEB(AEB Node)
-        O --> LAT(Lateral Avoidance Node)
-        P --> MPC(MPC Planner Node)
-        P --> WP(GNSS Waypoint Node)
-        X[Straight Drive Node] --> STRAIGHT[/pix/commands/lane_following]
+    subgraph PLAN["Decision and Planning Layer"]
+        O --> AEB["AEB Node"]
+        O --> LAT["Lateral Avoidance Node"]
+        P --> MPC["MPC Planner Node"]
+        P --> WP["GNSS Waypoint Node"]
+        X["Straight Drive Node"] --> STRAIGHT["pix commands lane following"]
     end
 
-    subgraph ACT [Single Arbitration Pipeline]
-        AEB -->|pub: /pix/commands/collision_avoidance| ARB
-        LAT -->|pub: /pix/commands/human_avoidance| ARB
-        WP -->|pub: /pix/commands/lane_following| ARB
-        MPC -->|pub: /pix/commands/cruise_control| ARB
+    subgraph ACT["Single Arbitration Pipeline"]
+        AEB -->|collision_avoidance| ARB
+        LAT -->|human_avoidance| ARB
+        WP -->|lane_following| ARB
+        MPC -->|cruise_control| ARB
         STRAIGHT --> ARB
 
-        ARB(pix_command_manager — Real Arbitrator) -->|pub: /pix/raw_control_cmd| SAFE(Safety Manager)
-        SAFE -->|pub: /pix/control_cmd| VCU[pix_vehicle_interface_cpp → CAN → VCU]
+        ARB["pix_command_manager Real Arbitrator"] -->|raw_control_cmd| SAFE["Safety Manager"]
+        SAFE -->|control_cmd| VCU["pix_vehicle_interface_cpp CAN VCU"]
     end
 ```
 

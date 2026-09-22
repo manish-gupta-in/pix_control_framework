@@ -28,10 +28,13 @@ brakes to a full stop.
 
 ## 2. Setting Up the Vehicle
 
-1. Unzip `pix_control_framework_v18.zip` on the vehicle computer.
+1. Clone the framework onto the vehicle computer:
+   ```bash
+   git clone git@github.com:manish-gupta-in/pix_control_framework.git
+   cd pix_control_framework
+   ```
 2. Build the workspace (only needs to be done once):
    ```bash
-   cd pix_control_framework
    source /opt/ros/humble/setup.bash
    colcon build --symlink-install
    source install/setup.bash
@@ -44,7 +47,7 @@ brakes to a full stop.
 4. Verify VCU frames are coming in:
    ```bash
    candump can4 -n 10
-   # You should see frames on IDs 0x500–0x512
+   # You should see frames from the VCU at 50 Hz
    ```
 
 ---
