@@ -27,23 +27,27 @@ class TestSteeringClamp:
     """Test steering angle clamping."""
 
     def setup_method(self):
-        self.logic = SafetyClampLogic(max_steer_angle=350.0)
+        self.logic = SafetyClampLogic(max_steer_angle=450.0)
 
     def test_within_range(self):
         assert self.logic.clamp_steering(200.0) == 200.0
 
     def test_positive_over(self):
-        assert self.logic.clamp_steering(500.0) == 350.0
+        assert self.logic.clamp_steering(500.0) == 450.0
 
     def test_negative_over(self):
-        assert self.logic.clamp_steering(-500.0) == -350.0
+        assert self.logic.clamp_steering(-500.0) == -450.0
 
     def test_zero(self):
         assert self.logic.clamp_steering(0.0) == 0.0
 
     def test_at_boundary(self):
+        # 350° is within 450° limit → passes through unchanged
         assert self.logic.clamp_steering(350.0) == 350.0
         assert self.logic.clamp_steering(-350.0) == -350.0
+        # 450° is exactly at limit → also passes through
+        assert self.logic.clamp_steering(450.0) == 450.0
+        assert self.logic.clamp_steering(-450.0) == -450.0
 
 
 class TestSpeedClamp:
@@ -125,7 +129,7 @@ class TestValidateCommand:
 
     def setup_method(self):
         self.logic = SafetyClampLogic(
-            max_steer_angle=350.0,
+            max_steer_angle=450.0,
             max_steer_rate=150.0,
             max_speed=5.0,
             max_accel=2.0,
@@ -154,8 +158,8 @@ class TestValidateCommand:
             brake_target=200.0,
             dt=10.0,  # very large dt to not hit rate limit
         )
-        assert result['steer_target'] == 350.0  # clamped
-        assert result['steer_speed'] == 250.0    # clamped
+        assert result['steer_target'] == 450.0  # clamped to hardware.yaml max_steer_angle
+        assert result['steer_speed'] == 250.0    # clamped to hardware.yaml max_steer_rate
         assert result['speed_target'] == 5.0     # clamped
         assert result['accel_target'] == 2.0     # clamped
         assert result['brake_target'] == 100.0   # clamped

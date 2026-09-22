@@ -122,28 +122,21 @@ def generate_launch_description():
         ),
 
         # ── 4. Safety Manager ─────────────────────────────────────────────────
-        # Enforces hard limits before forwarding to CAN TX:
-        #   - Max steer angle: 280°
-        #   - Max speed: 3.0 m/s (hardware profile)
-        #   - Max acceleration: 1.0 m/s²
-        #   - Watchdog timeout: 0.3 s → sends zero-speed safe cmd
-        # Input:  /pix/raw_control_cmd
-        # Output: /pix/control_cmd
+        # Enforces hard limits before forwarding to CAN TX.
+        # ALL limits from safety_params.yaml (Whale/Autoware Hooke2 reference):
+        #   max_steer_angle:  450° (90% of HW: 8.72 rad = 499.6°)
+        #   max_steer_rate:   250°/s (Whale: 4.36 rad/s)
+        #   max_speed:        1.5 m/s (test; Whale prod: 5.0 m/s)
+        #   max_accel:        1.5 m/s²
+        #   watchdog_timeout: 0.5 s (< HW command_timeout_ms=1000ms)
+        # DO NOT add inline param overrides — edit safety_params.yaml only.
+        # Input:  /pix/raw_control_cmd   Output: /pix/control_cmd
         Node(
             package='pix_safety_manager',
             executable='safety_manager',
             name='safety_manager',
             output='screen',
-            parameters=[
-                safety_cfg,
-                {
-                    'max_steer_angle':   500.0,
-                    'max_steer_rate':    250.0,
-                    'max_speed':           5.0,
-                    'max_accel':           3.0,
-                    'watchdog_timeout':    0.3,
-                }
-            ]
+            parameters=[safety_cfg]
         ),
 
         # ── 5. System State Manager ───────────────────────────────────────────

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-pix_framework_watcher_node.py — v12 Live Verification Tool
+pix_framework_watcher_node.py — v20 Live Verification Tool
 ==============================================================
 Subscribes to ALL framework topics and prints a live terminal summary.
 Verifies:
@@ -75,7 +75,7 @@ class FrameworkWatcher(Node):
     def run_checks(self):
         """Run all verification checks."""
         self.get_logger().info('=' * 60)
-        self.get_logger().info('PIX FRAMEWORK v12 WATCHER — Topic/Service Verification')
+        self.get_logger().info('PIX FRAMEWORK v20 WATCHER — Topic/Service Verification')
         self.get_logger().info('=' * 60)
 
         # Get all active topics and services

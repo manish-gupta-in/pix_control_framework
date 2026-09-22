@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![C++](https://img.shields.io/badge/C++-17-00599C?logo=cplusplus&logoColor=white)](https://isocpp.org/)
 [![License](https://img.shields.io/badge/License-Proprietary-red)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-v19.0-brightgreen)](https://github.com/manish-gupta-in/pix_control_framework/releases/tag/v19.0)
+[![Version](https://img.shields.io/badge/Version-v20.0-brightgreen)](https://github.com/manish-gupta-in/pix_control_framework/releases/tag/v20.0)
 [![Platform](https://img.shields.io/badge/Platform-PIXKIT%20DTV-orange)](https://www.pixmoving.com/)
 
 **A modular, safety-first ROS 2 framework for autonomous control of the PIXKIT Drive-by-Wire shuttle.**  
@@ -28,7 +28,8 @@ Built on a layered Sense → Plan → Act architecture with a C++ CAN codec, pri
 8. [Launch Reference](#launch-reference)
 9. [Running Tests](#running-tests)
 10. [Writing a New Algorithm](#writing-a-new-algorithm)
-11. [Version History](#version-history)
+11. [Field Units & Safety Limits Reference](#field-units--safety-limits-reference)
+12. [Version History](#version-history)
 
 ---
 
@@ -191,7 +192,7 @@ pix_control_framework/
 │   ├── pix_command_manager/          # Python: Priority arbitrator
 │   ├── pix_safety_manager/           # Python: Safety clamping
 │   ├── pix_algorithm_api/            # Python: Algorithm base class
-│   ├── pix_autonomy/                 # Python: Full autonomy stack (v19)
+│   ├── pix_autonomy/                 # Python: Full autonomy stack (v20)
 │   │   ├── pix_autonomy/
 │   │   │   ├── aeb_node.py
 │   │   │   ├── yolo_perception_node.py
@@ -216,6 +217,8 @@ pix_control_framework/
 ├── pix_autonomy_architecture.md
 └── yolov8n.pt
 ```
+
+> **Note:** `launch/` and `scripts/` directories are plain Python/YAML files — no build step needed. They are picked up directly at runtime.
 
 ---
 
@@ -247,8 +250,6 @@ colcon build --symlink-install
 # Source workspace
 source install/setup.bash
 ```
-
-> **Note:** `launch/` and `scripts/` directories are plain Python/YAML files — no build step needed. They are picked up directly at runtime.
 
 ---
 
@@ -325,7 +326,7 @@ class MyAlgorithmNode(BaseAlgorithmInterface):
         status = self.get_vehicle_status()  # latest PixVehicleStatus
         self.publish_control_cmd(
             drive_en=True,  speed_target=2.0, accel_target=1.0,
-            steer_en=True,  steer_target=0.0, steer_speed=150.0,
+            steer_en=True,  steer_target=0.0, steer_speed=250.0,
             gear_en=True,   gear_target=4,    # 4 = DRIVE
             park_en=True,   park_target=0,    # 0 = RELEASE
         )
@@ -337,14 +338,14 @@ For full documentation see [`pix_autonomy_architecture.md`](pix_autonomy_archite
 
 ---
 
-## Field Units Reference
+## Field Units & Safety Limits Reference
 
 | Field | Unit | Safety Clamp |
 |---|---|---|
 | `steer_target` | degrees (wheel angle) | ±500° |
 | `steer_speed` | deg/s | 250 deg/s |
 | `speed_target` | m/s | 5.0 m/s |
-| `accel_target` | m/s² | 3.0 m/s² |
+| `accel_target` | m/s² | 1.5 m/s² |
 | `brake_target` | % | 100% |
 | `gear_target` | int | 1=Park 2=Reverse 3=Neutral 4=Drive |
 | `park_target` | int | 0=Release 1=Engage |
@@ -355,7 +356,8 @@ For full documentation see [`pix_autonomy_architecture.md`](pix_autonomy_archite
 
 | Version | Highlights |
 |---|---|
-| **v19.0** | `aeb_node` enhanced: `min_trigger_speed` and `min_distance` params; `straight_drive_node` WAKE state machine for safe VCU startup; `base_algorithm_interface` expanded API; `control_arbitrator_node.py` removed — arbitration consolidated into `pix_command_manager`; `command_arbitrator`, `lane_following`, `yolo_avoidance` updated |
+| **v20.0** | Final framework release — AEB self-recovering logic (Priority-1 arbitrator override without latching e-stop); `straight_drive_node` unified WAKE / RUN / STOP state machine; hardware profile calibrated with Hooke2 reference limits (500° steer, 250°/s rate, 1.5 m/s² accel); enhanced safety clamping & unit test coverage |
+| v19.0 | `aeb_node` enhanced: `min_trigger_speed` and `min_distance` params; `straight_drive_node` WAKE state machine for safe VCU startup; `base_algorithm_interface` expanded API; `control_arbitrator_node.py` removed — arbitration consolidated into `pix_command_manager`; `command_arbitrator`, `lane_following`, `yolo_avoidance` updated |
 | v18.0 | `pix_autonomy/setup.py` — added missing `control_arbitrator_node` console entry point; `test_imports.py` coverage extended |
 | v17.0 | `straight_drive_node` — park brake release command added on drive start |
 | v16.0 | `pix_autonomy` package introduced: AEB, YOLO Perception, GNSS Waypoint Follower, MPC Planner, Lateral Avoidance, Straight Drive. Full Sense→Plan→Act stack |

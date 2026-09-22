@@ -20,7 +20,7 @@ import pytest
 class BicycleModel:
     def __init__(self, wheelbase=2.0, max_steer_limit=500.0,
                  max_brake_decel=4.0, friction_decel=0.5,
-                 steering_ratio=15.0, dt=0.02):
+                 steering_ratio=16.6, dt=0.02):  # 16.6 matches pix_vehicle_interface_cpp
         self.L = wheelbase
         self.max_steer_limit = max_steer_limit
         self.max_brake_decel = max_brake_decel

@@ -11,12 +11,19 @@ class PixSafetyManagerNode(Node):
     def __init__(self):
         super().__init__('pix_safety_manager')
         
-        # Declare parameters for safety limits
-        self.declare_parameter('max_steer_angle', 350.0)      # deg (chassis limit is 500)
-        self.declare_parameter('max_steer_rate', 150.0)       # deg/s
-        self.declare_parameter('max_speed', 5.0)             # m/s (approx 18 km/h for campus shuttle)
-        self.declare_parameter('max_accel', 2.0)             # m/s^2
-        self.declare_parameter('watchdog_timeout', 0.3)       # seconds
+        # Whale hooke2.param.yaml: max_steering_wheel=8.72rad=499.6°; we cap at 450° (90% of HW max)
+        self.declare_parameter('max_steer_angle', 450.0)      # deg  (HW limit ~500°)
+        # Whale hooke2.param.yaml: max_steering_wheel_rate=4.36rad/s=249.8°/s
+        self.declare_parameter('max_steer_rate', 250.0)       # deg/s (Whale: 4.36 rad/s)
+        # Whale prod max_speed=5.0; Autoware code default=1.5; we use 1.5 for testing
+        self.declare_parameter('max_speed', 1.5)              # m/s
+        # Whale sim vel_rate_lim=7.0; conservative: 1.5
+        self.declare_parameter('max_accel', 1.5)              # m/s²
+        # ── Timeout Hierarchy ────────────────────────────────────────────────────
+        # Layer 1 (this):     safety_manager watchdog = 0.5s (fires first)
+        # Layer 2 (C++ node): pix_vehicle_interface_cpp = 1.0s
+        # Layer 3 (Whale HW): command_timeout_ms = 1000ms in hooke2.param.yaml
+        self.declare_parameter('watchdog_timeout', 0.5)       # s (< 1.0s HW timeout)
         
         self.max_steer_angle = self.get_parameter('max_steer_angle').value
         self.max_steer_rate = self.get_parameter('max_steer_rate').value

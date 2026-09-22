@@ -1,24 +1,32 @@
 /**:
   ros__parameters:
 
-    # ── Steering Safety Envelope ─────────────────────────────────────────────
-    # Maximum steering angle the safety layer will allow (degrees).
-    # Hardware physical limit is 500 deg. Keep below to prevent chassis strain.
-    max_steer_angle: 350.0          # deg  (hardware limit: 500)
+    # ── AUTHORITATIVE safety limits for PIX Safety Manager ───────────────────
+    # Source: hooke2.param.yaml + hooke2_interface.cpp + vehicle_info.param.yaml
+    # All values verified against the official Whale/Autoware Hooke2 interface.
 
-    # Maximum steering rate of change per second. Prevents sharp jerks.
-    # PIX recommendation: <= 200 deg/s. Conservative: 150.
-    max_steer_rate: 150.0           # deg/s
+    # ── Steering (wheel-angle, degrees) ──────────────────────────────────────
+    # Hardware limit: 8.72 rad = 499.6° (hooke2.param.yaml: max_steering_wheel)
+    # We cap at 450° (90% of hardware limit) for testing margin.
+    max_steer_angle: 450.0          # deg  (HW: ~500°; Whale: 8.72 rad = 499.6°)
 
-    # ── Longitudinal Safety Envelope ─────────────────────────────────────────
-    # Maximum vehicle speed permitted by the safety manager.
-    # Campus deployment: 5.0 m/s (18 km/h). Open road: up to 8.0 m/s.
-    max_speed: 5.0                  # m/s
+    # Whale max rate: 4.36 rad/s = 249.8 deg/s (hooke2.param.yaml)
+    max_steer_rate: 250.0           # deg/s  (Whale: 4.36 rad/s)
 
-    # Maximum commanded acceleration. Prevents wheel slip / passenger comfort issues.
-    max_accel: 2.0                  # m/s^2
+    # ── Longitudinal ─────────────────────────────────────────────────────────
+    # Whale production max_speed = 5.0 m/s.
+    # Use 1.5 m/s for AEB/camera tests (same as Autoware code default).
+    max_speed: 1.5                  # m/s  (Whale prod: 5.0; test: 1.5)
 
-    # ── Watchdog Timeout ─────────────────────────────────────────────────────
-    # If no raw_control_cmd is received for this many seconds, trigger E-Stop.
-    # Should be > arbitration timer period (20ms). Conservative: 300ms.
-    watchdog_timeout: 0.3           # seconds
+    # Whale simulator: vel_rate_lim = 7.0 m/s². Conservative for passenger comfort.
+    max_accel: 1.5                  # m/s²  (Whale sim: 7.0)
+
+    # ── Watchdog Timeout Hierarchy ────────────────────────────────────────────
+    # Layer 1 (this node):   safety_manager watchdog = 0.5s
+    #   → triggers E-stop, logs reason, sends safe-zero cmd
+    # Layer 2 (C++ interface): pix_vehicle_interface_cpp = 1.0s
+    #   → stops encoding CAN frames (vehicle goes passive)
+    # Layer 3 (Whale HW):    command_timeout_ms = 1000ms = 1.0s
+    #   → VCU itself stops responding to stale commands
+    # Layer 1 MUST fire before Layer 2/3 to ensure logged E-stop reason.
+    watchdog_timeout: 0.5           # seconds  (< 1.0s = HW timeout)

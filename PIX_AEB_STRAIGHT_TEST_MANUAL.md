@@ -1,4 +1,4 @@
-# PIX AEB & Straight Line Test Manual (v19)
+# PIX AEB & Straight Line Test Manual (v20)
 
 This manual provides step-by-step instructions for performing a **50-meter straight line test**
 with the **Autonomous Emergency Braking (AEB)** system active.
@@ -28,7 +28,7 @@ brakes to a full stop.
 
 ## 2. Setting Up the Vehicle
 
-1. Clone the framework onto the vehicle computer:
+1. Clone the framework repository (or extract `pix_control_framework_v20.zip`) on the vehicle computer:
    ```bash
    git clone git@github.com:manish-gupta-in/pix_control_framework.git
    cd pix_control_framework

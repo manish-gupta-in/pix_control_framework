@@ -1,4 +1,4 @@
-# PIX Autonomy Architecture Guide (v19)
+# PIX Autonomy Architecture Guide (v20)
 
 This guide explains the industry-standard **Sense → Plan → Act** architecture implemented in the
 `pix_autonomy` ROS2 package and how to integrate new algorithms into the PIX Control Framework.
@@ -107,7 +107,7 @@ class LKANode(BaseAlgorithmInterface):
     def control_loop(self):
         self.publish_control_cmd(
             drive_en=True, speed_target=2.0, accel_target=1.0,
-            steer_en=True, steer_target=calculated_steer, steer_speed=150.0,
+            steer_en=True, steer_target=calculated_steer, steer_speed=250.0,
             brake_en=False, brake_target=0.0,
             gear_en=True, gear_target=4,   # 4 = DRIVE
             park_en=True, park_target=0    # 0 = RELEASE
@@ -209,7 +209,7 @@ class SpeedHoldNode(BaseAlgorithmInterface):
         # Publish a PixControlCmd — degrees + m/s + percent, no unit conversion needed
         self.publish_control_cmd(
             drive_en=True,  speed_target=self.target_speed,  accel_target=1.0,
-            steer_en=True,  steer_target=0.0,                steer_speed=150.0,
+            steer_en=True,  steer_target=0.0,                steer_speed=250.0,
             brake_en=False, brake_target=0.0,
             gear_en=True,   gear_target=4,   # 4 = DRIVE
             park_en=True,   park_target=0,   # 0 = RELEASE

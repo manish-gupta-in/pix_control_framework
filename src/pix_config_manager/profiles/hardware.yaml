@@ -1,17 +1,78 @@
-# Hardware Profile — conservative safe limits for real vehicle deployment
+# hardware.yaml — AUTHORITATIVE hardware limits for PIX Hooke2 DTV deployment
+# ─────────────────────────────────────────────────────────────────────────────
+# All values cross-referenced against:
+#   1. hooke2.param.yaml (official Whale/Autoware Hooke2 interface config)
+#   2. hooke2_interface.cpp (actual C++ VCU limits and steering ratio)
+#   3. vehicle_info.param.yaml (Autoware vehicle spec)
+#
+# Unit convention for our PIX framework (matches PixControlCmd):
+#   steering    → degrees (wheel-angle, NOT tire angle)
+#   speed       → m/s
+#   brake       → percent (0–100%)
+#   accel       → m/s²
+#
+# ── Physical vehicle geometry (vehicle_info.param.yaml) ──────────────────────
+#   wheel_base:      2.0   m
+#   wheel_radius:    0.313 m  (dead reckoning); actual tire_radius = 0.39 m
+#   wheel_tread:     1.9   m  (left-to-right wheel center distance)
+#   front_overhang:  0.46  m
+#   rear_overhang:   0.46  m
+#
+# ── Steering geometry (hooke2_interface.cpp) ──────────────────────────────────
+#   Steering ratio:  16.6   (wheel-angle / tire-angle, FIXED — not variable)
+#   VGR coeff a:     15.713  (used in adaptive gear ratio formula only)
+#   VGR coeff b:     0.053
+#   VGR coeff c:     0.042
+#   Steering offset: 0.0    deg  (hardware null offset — adjust if vehicle pulls)
+#
+#   max tire angle:  0.70 rad = 40.1 deg  (from vehicle_info.param.yaml)
+#   → max wheel angle: 40.1 × 16.6 = 665.7 deg hardware limit
+#   → hooke2.param.yaml caps it at 8.72 rad = 499.6 deg ≈ 500 deg
+#
+# ── Speed limits (hooke2.param.yaml) ─────────────────────────────────────────
+#   max_speed:       5.0   m/s  (production limit in hooke2.param.yaml)
+#   Campus/AEB test: 1.5   m/s  (conservative, same as Autoware default code)
+#
+# ── Steering rate (hooke2.param.yaml, in rad/s → converted to deg/s) ─────────
+#   max_steering_wheel_rate: 4.36 rad/s = 249.8 deg/s ≈ 250 deg/s
+#   min_steering_wheel_rate: 3.0  rad/s = 171.9 deg/s ≈ 172 deg/s
+#
+# ── Emergency brake (hooke2.param.yaml) ──────────────────────────────────────
+#   emergency_brake: 0.7  (70% pedal — Whale does NOT use 100% to prevent lockup)
+#
+# ── Timeouts (hooke2.param.yaml) ─────────────────────────────────────────────
+#   command_timeout_ms: 1000 ms = 1.0 s  (vehicle interface hardware timeout)
+#   Our safety_manager watchdog: 0.5 s  (fires BEFORE vehicle interface — intentional)
+
 safety:
-  max_steer_angle:  280.0    # deg  — limited for safety
-  max_steer_rate:   150.0    # deg/s — slow, safe rate
-  max_speed:          3.0    # m/s  — 10.8 km/h max
-  max_accel:          1.0    # m/s^2 — gentle acceleration
-  watchdog_timeout:   0.3    # s  — strict heartbeat
+  # Maximum steering wheel angle. Hardware absolute limit = 499.6° (8.72 rad).
+  # We cap at 450° for testing (90% of hardware max = safe margin).
+  # Increase toward 500° only after confirming full-lock maneuvers are safe.
+  max_steer_angle:  450.0    # deg  (hardware hard limit: ~500°, 8.72 rad)
+
+  # Max steering rate. Whale sets 4.36 rad/s = 249.8 deg/s.
+  # We use 250°/s to match exactly.
+  max_steer_rate:   250.0    # deg/s  (Whale: 4.36 rad/s = 249.8 deg/s)
+
+  # Max commanded speed. Whale production limit = 5.0 m/s.
+  # For campus AEB testing keep at 1.5 m/s (same as Autoware code default).
+  # Increase to 3.0 m/s once AEB is validated.
+  max_speed:          1.5    # m/s  (Whale prod: 5.0; Autoware code default: 1.5)
+
+  # Max acceleration. Whale simulator: vel_rate_lim = 7.0 m/s².
+  # Conservative for passenger comfort: 1.5 m/s².
+  max_accel:          1.5    # m/s²  (Whale sim: 7.0; conservative: 1.5)
+
+  # Watchdog: fire BEFORE vehicle interface timeout (1000ms = hooke2.param.yaml).
+  # 500ms = 25 missed cycles at 50Hz. Long enough to survive a transient hiccup.
+  watchdog_timeout:   0.5    # s  (must be < 1.0s = command_timeout_ms)
 
 controller:
   lane_following:
-    gain_lateral:    0.005   # conservative gain
-    target_speed:     1.5    # m/s — slow
+    gain_lateral:    0.005   # conservative proportional gain
+    target_speed:     1.5    # m/s  — matches safety.max_speed for testing
     lookahead_m:      2.5    # m
 
 can:
-  can_interface:     can4    # real CAN interface
-  loop_rate:          50.0   # Hz
+  can_interface:     can4    # real CAN interface (Whale: channel_id=4)
+  loop_rate:          50.0   # Hz  (Whale runs at 30Hz; we use 50Hz)

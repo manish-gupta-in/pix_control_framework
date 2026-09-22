@@ -1,97 +1,123 @@
 #!/usr/bin/env python3
 import rclpy
 from std_msgs.msg import Float32MultiArray
+from pix_vehicle_msgs.msg import PixControlCmd
 from pix_algorithm_api.base_algorithm_interface import BaseAlgorithmInterface
 
 
 class AEBSystemNode(BaseAlgorithmInterface):
     """
-    Autonomous Emergency Braking (AEB).
+    Autonomous Emergency Braking (AEB) — v20.
 
     Subscribes to /perception/obstacles (Float32MultiArray):
-        msg.data[0] = estimated distance to closest person in metres
+        msg.data[0] = estimated distance to closest obstacle in metres
         msg.data[1] = lateral offset (unused by AEB — handled by avoidance node)
 
-    When TTC (distance / current_speed) < ttc_threshold:
-        - Publishes full brake on /pix/commands/collision_avoidance (Priority 1)
-        - drive_en=False, brake_en=True, brake_target=100%
-        - gear_en=True, gear_target=4 (DRIVE — do NOT drop to Neutral while braking)
-        - emergency_stop flag set so safety manager latches brakes unconditionally
+    AEB braking is a PRIORITY-1 override via the arbitrator — it does NOT use
+    emergency_stop=True. Reason: emergency_stop latches the safety manager forever,
+    preventing automatic resume when the obstacle clears. AEB must be self-recovering.
 
-    When no danger: publishes nothing (COLLISION_AVOIDANCE source goes stale after
-    active_timeout, allowing the lower-priority LANE_FOLLOWING source to drive).
+    Trigger conditions (either):
+        1. TTC (distance / speed) < ttc_threshold  AND  speed > min_trigger_speed
+        2. distance < min_distance  (even if vehicle is stationary)
+
+    When triggered:
+        - Continuously publishes full-brake command to /pix/commands/collision_avoidance
+        - Priority 1 in arbitrator → overrides ALL driving commands
+        - gear stays at DRIVE (4) — dropping to Neutral at speed is unsafe
+        - park NOT engaged — park brake while moving would cause wheel lock
+
+    When cleared (obstacle > min_distance AND TTC > threshold):
+        - Stops publishing → COLLISION_AVOIDANCE source goes stale (0.4 s)
+        - Arbitrator falls back to LANE_FOLLOWING → vehicle resumes
+
+    For a TRUE hard E-stop (sensor fail, crash contact): publish to /pix/estop_trigger.
+    That is a separate, operator-cleared latch. AEB must NOT use it.
     """
 
     def __init__(self):
         super().__init__('aeb_system', '/pix/commands/collision_avoidance')
 
-        self.declare_parameter('ttc_threshold', 2.0)   # seconds
-        self.declare_parameter('min_trigger_speed', 0.3)  # m/s
-        self.declare_parameter('min_distance', 2.5)       # meters — trigger if closer than this even at standstill
-        self.ttc_threshold   = self.get_parameter('ttc_threshold').value
-        self.min_trigger_spd = self.get_parameter('min_trigger_speed').value
-        self.min_distance    = self.get_parameter('min_distance').value
+        # ── Parameters ──────────────────────────────────────────────────────
+        self.declare_parameter('ttc_threshold',    2.0)   # seconds
+        self.declare_parameter('min_trigger_speed', 0.3)  # m/s — ignore TTC if nearly stopped
+        self.declare_parameter('min_distance',     2.5)   # m — absolute trigger even at standstill
+        self.declare_parameter('resume_hysteresis', 0.5)  # extra margin before resume (m and s)
 
-        # /perception/obstacles from yolo_perception_node
-        # data[0] = distance (m), data[1] = lateral_offset (normalised, ignored here)
+        self.ttc_threshold    = self.get_parameter('ttc_threshold').value
+        self.min_trigger_spd  = self.get_parameter('min_trigger_speed').value
+        self.min_distance     = self.get_parameter('min_distance').value
+        self.resume_hysteresis = self.get_parameter('resume_hysteresis').value
+
+        # ── Perception Input ─────────────────────────────────────────────────
         self.obstacle_distance = 999.0
         self.yolo_sub = self.create_subscription(
             Float32MultiArray, '/perception/obstacles',
             self.perception_callback, 10)
 
-        # AEB loop at 20 Hz (same as control loop — fast enough for 5 m/s max speed)
-        self.timer = self.create_timer(0.05, self.aeb_logic_loop)
+        # ── State ────────────────────────────────────────────────────────────
         self.aeb_engaged = False
+
+        # ── Loop at 20 Hz ────────────────────────────────────────────────────
+        self.timer = self.create_timer(0.05, self.aeb_logic_loop)
         self.get_logger().info(
-            f'AEB node ready. TTC threshold={self.ttc_threshold}s, '
-            f'min trigger speed={self.min_trigger_spd} m/s')
+            f'AEB ready. TTC={self.ttc_threshold}s | '
+            f'min_dist={self.min_distance}m | '
+            f'min_spd={self.min_trigger_spd}m/s')
+
+    # ── Callbacks ─────────────────────────────────────────────────────────────
 
     def perception_callback(self, msg: Float32MultiArray):
-        """Extract obstacle distance from perception array (index 0 = distance)."""
+        """data[0]=distance (m), data[1]=lateral offset (ignored by AEB)."""
         if msg.data and len(msg.data) >= 1:
-            self.obstacle_distance = float(msg.data[0])   # metres
+            self.obstacle_distance = float(msg.data[0])
         else:
             self.obstacle_distance = 999.0
 
+    # ── Control Loop ──────────────────────────────────────────────────────────
+
     def aeb_logic_loop(self):
         status = self.get_vehicle_status()
-        # PixVehicleStatus field: vehicle_speed (m/s)
         current_speed = float(getattr(status, 'vehicle_speed', 0.0))
+        dist = self.obstacle_distance
 
-        # Engage if TTC is critical OR if the obstacle is absolutely very close
-        is_moving_fast_enough = current_speed > self.min_trigger_spd
-        ttc = self.obstacle_distance / max(current_speed, 0.01)
-        
-        trigger_ttc = is_moving_fast_enough and (ttc < self.ttc_threshold)
-        trigger_dist = self.obstacle_distance < self.min_distance
+        # ── Engage condition ──────────────────────────────────────────────────
+        ttc = dist / max(current_speed, 0.01)
+        trigger_ttc  = (current_speed > self.min_trigger_spd) and (ttc < self.ttc_threshold)
+        trigger_dist = dist < self.min_distance
 
-        if (trigger_ttc or trigger_dist) and self.obstacle_distance < 900.0:
+        should_engage = (trigger_ttc or trigger_dist) and dist < 900.0
+
+        # ── Clear condition (hysteresis prevents rapid toggle) ────────────────
+        resume_clear = (
+            dist > (self.min_distance + self.resume_hysteresis) and
+            (not trigger_ttc)
+        )
+
+        if should_engage:
             if not self.aeb_engaged:
                 self.get_logger().error(
-                    f'AEB ENGAGED! dist={self.obstacle_distance:.2f}m '
-                    f'speed={current_speed:.2f}m/s TTC={ttc:.2f}s')
+                    f'[AEB ENGAGED] dist={dist:.2f}m speed={current_speed:.2f}m/s TTC={ttc:.2f}s')
                 self.aeb_engaged = True
 
-                # Priority 1 (COLLISION_AVOIDANCE) beats LANE_FOLLOWING.
-                # emergency_stop=True: safety manager applies full brakes regardless.
-                # Keep gear_target=4 (DRIVE) — dropping to Neutral while moving is unsafe.
-                self.publish_control_cmd(
-                    drive_en=False,  speed_target=0.0,   accel_target=0.0,
-                    steer_en=True,   steer_target=0.0,   steer_speed=150.0,
-                    brake_en=True,   brake_target=100.0,
-                    gear_en=True,    gear_target=4,        # stay in DRIVE
-                    park_en=False,   park_target=0,        # do not engage park at speed
-                    emergency_stop=True
-                )
-                return   # Do not fall through — keep COLLISION_AVOIDANCE alive
+            # ── Publish braking command — NO emergency_stop flag ──────────────
+            # Using the priority-1 arbitration slot is sufficient to override
+            # all driving commands without latching the safety manager.
+            self.publish_control_cmd(
+                drive_en=True,   speed_target=0.0,     accel_target=0.0,
+                steer_en=True,   steer_target=0.0,     steer_speed=150.0,
+                brake_en=True,   brake_target=100.0,
+                gear_en=True,    gear_target=4,   # stay in DRIVE — do NOT drop to Neutral
+                park_en=True,    park_target=0,   # do NOT engage park brake at speed
+                emergency_stop=False              # NEVER latch — AEB must be self-recovering
+            )
 
-        # No danger (or vehicle stopped): stop publishing so the source goes stale.
-        # After active_timeout (0.4s), the arbitrator drops COLLISION_AVOIDANCE and
-        # LANE_FOLLOWING resumes driving.
-        if self.aeb_engaged:
-            self.get_logger().info('AEB cleared — resuming normal operation.')
+        elif self.aeb_engaged and resume_clear:
+            # ── Stop publishing → source goes stale → arbitrator resumes LANE_FOLLOWING ──
+            self.get_logger().info(
+                f'[AEB CLEARED] dist={dist:.2f}m — resuming normal operation.')
             self.aeb_engaged = False
-        # (publish nothing — intentional)
+            # Intentionally publish nothing here
 
 
 def main(args=None):

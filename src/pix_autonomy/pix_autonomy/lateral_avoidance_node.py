@@ -8,17 +8,26 @@ import time
 
 class LateralAvoidancePlanner(BaseAlgorithmInterface):
     """
-    Industry-Standard Lateral Avoidance Planner.
-    Maintains a set driving speed and steers away from obstacles detected by YOLO.
-    Uses a proportional controller with ramping logic.
+    DEPRECATED BACKUP — Simple Lateral Avoidance Planner.
+
+    The OFFICIAL human avoidance implementation is:
+        src/algorithms/yolo_person_avoidance/yolo_person_avoidance/yolo_avoidance_node.py
+    That node has full Ramp/LatchSide logic, confidence filtering, and FPS tracking.
+
+    This node is kept as a minimal fallback for use WITHOUT a camera (e.g., if
+    a separate perception node publishes to /perception/obstacles).
+    DO NOT run both this node AND yolo_avoidance_node simultaneously — they both
+    publish to /pix/commands/human_avoidance and will conflict.
+
+    To use: ros2 run pix_autonomy lateral_avoidance_node
     """
     def __init__(self):
         super().__init__('lateral_avoidance_planner', '/pix/commands/human_avoidance')
         
         # Adjustable parameters
-        self.declare_parameter('driving_speed', 2.0)      # m/s
+        self.declare_parameter('driving_speed', 1.5)      # m/s — below hardware.yaml max_speed (3.0)
         self.declare_parameter('avoidance_gain', 35.0)    # Degrees of steering per unit of offset
-        self.declare_parameter('max_avoidance_angle', 150.0) # Maximum steering angle (degrees)
+        self.declare_parameter('max_avoidance_angle', 250.0) # MUST be < safety_manager max_steer_angle (280°)
         self.declare_parameter('deadband', 0.1)           # Ignore small offsets
         self.declare_parameter('hold_time', 1.0)          # Seconds to hold avoidance after object leaves view
         

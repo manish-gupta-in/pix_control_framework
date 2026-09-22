@@ -1,29 +1,60 @@
+# autonomy_params.yaml — PIX Autonomy Stack v20 Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+# All speed/steer values derived from Whale/Autoware Hooke2 reference:
+#   hooke2.param.yaml, hooke2_interface.cpp, vehicle_info.param.yaml
+#
+# Safety limits enforced by pix_safety_manager (safety_params.yaml):
+#   max_steer_angle: 450.0 deg  (Whale HW: 8.72 rad = 499.6°)
+#   max_steer_rate:  250.0 deg/s (Whale: 4.36 rad/s = 249.8°/s)
+#   max_speed:         1.5 m/s  (conservative test limit)
+#   max_accel:         1.5 m/s²
+
+# ── Straight Drive Node (Lane Following + Person Avoidance) ──────────────────
+# This node implements the full Sense→Plan→Act loop:
+#   - Straight cruise at `speed` m/s
+#   - When person detected < `avoidance_start_dist`: slow down + steer away
+#   - When person < `aeb_min_distance` OR TTC < `aeb_ttc_threshold`: stop publishing
+#     → AEB node (Priority 1) takes over automatically
+#   - When person gone: resume straight cruise
 straight_drive_planner:
   ros__parameters:
-    speed: 1.5   # Speed in m/s for the straight test (approx 5.4 km/h)
-    # 1.5 m/s is equal to in km/h as 1.5 * 3.6 = 5.4 km/h
-    # 2.5 m/s is equal to in km/h as 2.5 * 3.6 = 9.0 km/h
-    # 3.0 m/s is equal to in km/h as 3.0 * 3.6 = 10.8 km/h
-    # 5.0 m/s is equal to in km/h as 5.0 * 3.6 = 18.0 km/h
-    # 8.0 m/s is equal to in km/h as 8.0 * 3.6 = 28.8 km/h
-    # 10.0 m/s is equal to in km/h as 10.0 * 3.6 = 36.0 km/h
+    speed: 1.5                # m/s — cruise speed (must be ≤ safety max_speed)
+    steer_speed_dps: 250.0    # deg/s — Whale: 4.36 rad/s = 249.8°/s
 
+    # Person avoidance zone (active before AEB zone)
+    avoidance_start_dist: 5.0   # m — start slowing + steering when person < this distance
+    avoidance_steer_gain: 40.0  # deg per unit of lateral offset (0..1)
+    avoidance_max_steer: 200.0  # deg — max avoidance steer angle (< safety max 450°)
+    avoidance_min_speed: 0.4    # m/s — slow to this speed while avoiding
 
+    # AEB handoff (must match aeb_node params below)
+    aeb_min_distance: 2.5       # m — stop publishing, let AEB node take over
+    aeb_ttc_threshold: 2.0      # s — also stop publishing if TTC < this
+
+# ── AEB Node ──────────────────────────────────────────────────────────────────
+# Publishes to /pix/commands/collision_avoidance (Priority 1)
+# Overrides ALL other commands when obstacle is too close.
+# Does NOT use emergency_stop=True — self-recovering via arbitrator timeout.
 aeb_node:
   ros__parameters:
-    ttc_threshold: 2.0       # Time to collision (seconds) before AEB engages
-    min_trigger_speed: 0.3   # m/s — AEB won't engage based on TTC below this speed
-    min_distance: 2.5        # meters — trigger if closer than this even at standstill
+    ttc_threshold: 2.0        # s — TTC trigger (matches aeb_ttc_threshold above)
+    min_trigger_speed: 0.3    # m/s — TTC logic disabled below this speed
+    min_distance: 2.5         # m — trigger even at standstill (matches aeb_min_distance above)
+    resume_hysteresis: 0.5    # m — extra margin before clearing AEB (prevents toggle)
 
-lateral_avoidance_planner:
-  ros__parameters:
-    driving_speed: 2.0         # Normal driving speed in m/s
-    avoidance_gain: 35.0       # Steering degrees per unit of person offset
-    max_avoidance_angle: 150.0 # Maximum allowed steering wheel angle
-    deadband: 0.1              # Ignore offsets smaller than this
-    hold_time: 1.0             # Seconds to hold steering after person disappears
-
+# ── YOLO Perception Node ───────────────────────────────────────────────────────
 yolo_perception:
   ros__parameters:
     model_path: "yolov8n.pt"
     camera_topic: "/camera/right/image"
+
+# ── Lateral Avoidance Planner (DEPRECATED BACKUP — do not run with straight_drive_node) ──
+# Official behavior is now integrated into straight_drive_node.
+# Use ONLY if running without straight_drive_node (e.g., camera-only avoidance test).
+lateral_avoidance_planner:
+  ros__parameters:
+    driving_speed: 1.5          # m/s — matches safety max_speed
+    avoidance_gain: 35.0        # deg per unit screen offset
+    max_avoidance_angle: 200.0  # deg — below safety max (450°)
+    deadband: 0.1               # ignore offsets smaller than this
+    hold_time: 1.0              # s — hold steering after person disappears

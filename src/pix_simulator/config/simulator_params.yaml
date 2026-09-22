@@ -1,15 +1,42 @@
 /**:
   ros__parameters:
 
-    # ── Kinematic Model ──────────────────────────────────────────────────────
-    wheelbase: 2.0                  # meters (rear-to-front axle)
-    max_steer_limit: 500.0          # VCU steering angle range (deg, symmetric)
+    # ── Kinematic Model ────────────────────────────────────────────────────────
+    # Source: vehicle_info.param.yaml (Whale DTV official)
+    wheelbase: 2.0                  # m — wheel_base from vehicle_info.param.yaml
+    wheel_tread: 1.9                # m — wheel_tread from vehicle_info.param.yaml
+    wheel_radius: 0.313             # m — wheel_radius from vehicle_info.param.yaml
+    # Note: hooke2_interface.cpp uses tire_radius_=0.39 for CAN encoding (physical tire)
+    #       but 0.313 is the Autoware/dead-reckoning value used in vehicle_info.param.yaml
 
-    # ── Braking & Friction ───────────────────────────────────────────────────
-    max_brake_decel: 4.0            # m/s^2 at 100% brake pedal
-    friction_decel: 0.5             # m/s^2 passive friction when no command
+    max_steer_limit: 499.6          # deg — absolute VCU hardware limit
+                                    # (Whale: max_steering_wheel=8.72 rad = 499.6°)
 
-    # ── Steering Ratio ───────────────────────────────────────────────────────
-    # Ratio of steering wheel angle to actual front wheel angle.
-    # Used only inside the simulator for kinematic integration.
-    steering_ratio: 15.0
+    # ── Braking & Friction ─────────────────────────────────────────────────────
+    # Whale emergency_brake = 0.7 (70%). At 70% pedal, decel ≈ 3.0–4.0 m/s².
+    # We use 3.5 m/s² at 70% pedal as a calibrated midpoint.
+    max_brake_decel: 3.5            # m/s²  at 100% brake pedal (Whale emergency=70%→~3.5)
+    friction_decel: 0.3             # m/s²  passive friction (low-resistance EV drivetrain)
+
+    # ── Steering Ratio ─────────────────────────────────────────────────────────
+    # Source: hooke2_interface.cpp (FIXED ratio, not variable)
+    #   Line 416: current_steer = current_steer_wheel / 16.6
+    #   Line 647: desired_steer_wheel = tire_angle * 16.0  (command uses 16.0 for send)
+    #   Line 825: wheel_tier_angle = steer_cmd.command / 16.0
+    #
+    # The official Whale interface uses:
+    #   RECEIVE (status decode): divide by 16.6
+    #   SEND    (command encode): multiply by 16.0
+    #
+    # For our simulator (position integration), we use 16.6 (receive convention)
+    # because it is the physically measured ratio used for state estimation.
+    # NOTE: The VGR formula (vgr_coef_a=15.713, b=0.053, c=0.042) is present in the
+    # code but commented out — the actual deployed system uses the fixed 16.6/16.0 values.
+    steering_ratio: 16.6            # wheel-angle / tire-angle (Whale receive convention)
+
+    # ── Dynamics (from simulator_model.param.yaml) ───────────────────────────
+    # These match the Autoware DELAY_STEER_ACC_GEARED model for the Hooke2.
+    steer_time_delay: 0.24          # s  — dead time for steering input
+    steer_time_constant: 0.27       # s  — 1st-order steering time constant
+    acc_time_delay: 0.1             # s  — dead time for acceleration input
+    acc_time_constant: 0.1          # s  — 1st-order acceleration time constant

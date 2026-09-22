@@ -17,12 +17,12 @@ class SafetyClampLogic:
 
     def __init__(
         self,
-        max_steer_angle: float = 350.0,
-        max_steer_rate: float = 150.0,
-        max_speed: float = 5.0,
-        max_accel: float = 2.0,
+        max_steer_angle: float = 450.0,   # deg — Whale: 8.72 rad = 499.6° (we use 90%)
+        max_steer_rate: float = 250.0,    # deg/s — Whale: 4.36 rad/s = 249.8°/s
+        max_speed: float = 1.5,           # m/s — Whale prod: 5.0; test: 1.5
+        max_accel: float = 1.5,           # m/s² — Whale sim: 7.0; conservative: 1.5
         max_brake: float = 100.0,
-        max_steer_speed: float = 250.0,
+        max_steer_speed: float = 250.0,   # deg/s — matches max_steer_rate
         min_steer_speed: float = 1.0,
     ):
         self.max_steer_angle = max_steer_angle

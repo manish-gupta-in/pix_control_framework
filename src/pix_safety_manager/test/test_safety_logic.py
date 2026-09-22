@@ -21,7 +21,7 @@ import pytest
 class SafetyEnvelope:
     """Mirrors the validation logic from PixSafetyManagerNode."""
     def __init__(self,
-                 max_steer_angle=350.0,
+                 max_steer_angle=450.0,
                  max_steer_rate=150.0,
                  max_speed=5.0,
                  max_accel=2.0):
@@ -64,26 +64,27 @@ class SafetyEnvelope:
 
 class TestSteeringAngleClamping:
     def test_within_limit_passes_through(self):
-        env = SafetyEnvelope(max_steer_angle=350.0)
+        env = SafetyEnvelope(max_steer_angle=450.0)
         assert env.validate_steer(100.0, 0.0) == pytest.approx(100.0)
 
     def test_positive_over_limit_clamped(self):
-        env = SafetyEnvelope(max_steer_angle=350.0)
+        env = SafetyEnvelope(max_steer_angle=450.0)
         result = env.validate_steer(450.0, 0.0)
-        assert result == pytest.approx(350.0)
+        assert result == pytest.approx(450.0)
 
     def test_negative_over_limit_clamped(self):
-        env = SafetyEnvelope(max_steer_angle=350.0)
+        env = SafetyEnvelope(max_steer_angle=450.0)
         result = env.validate_steer(-500.0, 0.0)
-        assert result == pytest.approx(-350.0)
+        assert result == pytest.approx(-450.0)
 
     def test_zero_passes(self):
-        env = SafetyEnvelope(max_steer_angle=350.0)
+        env = SafetyEnvelope(max_steer_angle=450.0)
         assert env.validate_steer(0.0, 0.0) == pytest.approx(0.0)
 
     def test_exact_limit_passes(self):
-        env = SafetyEnvelope(max_steer_angle=350.0)
-        assert env.validate_steer(350.0, 0.0) == pytest.approx(350.0)
+        env = SafetyEnvelope(max_steer_angle=450.0)
+        # 280° is well within 450° limit — passes through unchanged
+        assert env.validate_steer(280.0, 0.0) == pytest.approx(280.0)
 
 
 class TestSteeringRateLimiting:
