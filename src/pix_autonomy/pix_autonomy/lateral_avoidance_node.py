@@ -41,9 +41,12 @@ class LateralAvoidancePlanner(BaseAlgorithmInterface):
         self.last_detect_time = 0.0
         self.current_steer = 0.0
         
+        self.state = 'WAKE'
+        self.state_start_time = self.get_clock().now().nanoseconds / 1e9
+        
         # Control Loop at 50Hz (Standard for vehicles)
         self.timer = self.create_timer(0.02, self.control_loop)
-        self.get_logger().info("Lateral Avoidance Planner running...")
+        self.get_logger().info("Lateral Avoidance Planner starting...")
 
     def perception_callback(self, msg):
         # msg.data = [distance, norm_offset]
@@ -86,13 +89,55 @@ class LateralAvoidancePlanner(BaseAlgorithmInterface):
         elif target_steer < self.current_steer:
             self.current_steer = max(self.current_steer - step, target_steer)
             
-        # Publish the command!
-        self.publish_control_cmd(
-            drive_en=True, speed_target=self.driving_speed, accel_target=1.0,
-            steer_en=True, steer_target=self.current_steer, steer_speed=150.0,
-            brake_en=False, brake_target=0.0, 
-            gear_en=True, gear_target=4 # 4 = DRIVE
-        )
+        # ── State Machine for Safe Shifting ──
+        elapsed = now - self.state_start_time
+        
+        if self.state == 'WAKE':
+            self.publish_control_cmd(
+                drive_en=True, speed_target=0.0, accel_target=1.0,
+                steer_en=True, steer_target=0.0, steer_speed=150.0,
+                brake_en=True, brake_target=100.0, 
+                gear_en=True, gear_target=3, # NEUTRAL
+                park_en=True, park_target=0
+            )
+            if elapsed > 5.0:
+                self.state = 'SHIFT'
+                self.state_start_time = now
+                
+        elif self.state == 'SHIFT':
+            self.publish_control_cmd(
+                drive_en=True, speed_target=0.0, accel_target=1.0,
+                steer_en=True, steer_target=0.0, steer_speed=150.0,
+                brake_en=True, brake_target=100.0, 
+                gear_en=True, gear_target=4, # DRIVE
+                park_en=True, park_target=0
+            )
+            if elapsed > 3.0:
+                self.state = 'RELEASE_BRAKE'
+                self.state_start_time = now
+                
+        elif self.state == 'RELEASE_BRAKE':
+            self.publish_control_cmd(
+                drive_en=True, speed_target=0.0, accel_target=1.0,
+                steer_en=True, steer_target=0.0, steer_speed=150.0,
+                brake_en=True, brake_target=0.0, 
+                gear_en=True, gear_target=4,
+                park_en=True, park_target=0
+            )
+            if elapsed > 1.0:
+                self.state = 'DRIVE'
+                self.state_start_time = now
+                self.get_logger().info("Driving and avoiding obstacles...")
+                
+        elif self.state == 'DRIVE':
+            # Publish the command!
+            self.publish_control_cmd(
+                drive_en=True, speed_target=self.driving_speed, accel_target=1.0,
+                steer_en=True, steer_target=self.current_steer, steer_speed=150.0,
+                brake_en=False, brake_target=0.0, 
+                gear_en=True, gear_target=4, # 4 = DRIVE
+                park_en=True, park_target=0
+            )
 
 def main(args=None):
     rclpy.init(args=args)

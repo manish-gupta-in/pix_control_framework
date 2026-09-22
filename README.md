@@ -1,358 +1,207 @@
-<div align="center">
+# PIX Control Framework v19
+### Hooke2 PIXKIT DTV Shuttle — Production Autonomous Control Stack
 
-# PIX Control Framework
-
-[![ROS2](https://img.shields.io/badge/ROS2-Humble-blue?logo=ros&logoColor=white)](https://docs.ros.org/en/humble/)
-[![Python](https://img.shields.io/badge/Python-3.10-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![C++](https://img.shields.io/badge/C++-17-00599C?logo=cplusplus&logoColor=white)](https://isocpp.org/)
-[![License](https://img.shields.io/badge/License-Proprietary-red)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-v18.0-brightgreen)](https://github.com/manish-gupta-in/pix_control_framework/releases/tag/v18.0)
-[![Platform](https://img.shields.io/badge/Platform-PIXKIT%20DTV-orange)](https://www.pixmoving.com/)
-
-**A modular, safety-first ROS 2 framework for autonomous control of the PIXKIT Drive-by-Wire shuttle.**  
-Built on a layered Sense → Plan → Act architecture with a C++ CAN codec, priority-based command arbitration, and a hot-swappable algorithm API.
-
-</div>
+> **Framework version:** v19 | **ROS2:** Humble | **Vehicle:** PIXKIT DTV Hooke2  
+> **Single command format:** `PixControlCmd` (pix_vehicle_msgs) — degrees, m/s, percent
 
 ---
 
-## Table of Contents
-
-1. [Architecture Overview](#architecture-overview)
-2. [Data Flow](#data-flow)
-3. [Package Reference](#package-reference)
-4. [Repository Layout](#repository-layout)
-5. [Prerequisites](#prerequisites)
-6. [Build Instructions](#build-instructions)
-7. [Hardware Setup](#hardware-setup)
-8. [Launch Reference](#launch-reference)
-9. [Running Tests](#running-tests)
-10. [Version History](#version-history)
-
----
-
-## Architecture Overview
-
-The framework is organised into four independent layers. Each layer communicates exclusively through well-defined ROS 2 topics — no layer reaches across another's boundary.
-
-```mermaid
-graph TB
-    subgraph PHYS["Layer 1 - Physical - PIXKIT DTV"]
-        VCU["VCU Drive-by-Wire"]
-        CAN["CAN Bus can4 500kbps"]
-    end
-
-    subgraph CANL["Layer 2 - CAN Interface C++"]
-        CODEC["pix_can_codec"]
-        DRIVER["pix_can_driver"]
-        IFACE["pix_vehicle_interface_cpp 50Hz"]
-        MSGS_V["pix_vehicle_msgs"]
-        MSGS_C["pix_control_msgs"]
-    end
-
-    subgraph CORE["Layer 3 - Core Framework Python"]
-        ARB["pix_command_manager Priority Arbitrator"]
-        SAFE["pix_safety_manager Clamp and Watchdog"]
-        STATE["pix_state_manager FSM"]
-        CFG["pix_config_manager Profile Loader"]
-        DIAG["pix_diagnostics"]
-        LOG["pix_logger CSV"]
-    end
-
-    subgraph AUTO["Layer 4 - Autonomy Stack Python"]
-        PERC["yolo_perception_node Sense"]
-        AEB["aeb_node Emergency Brake"]
-        MPC["mpc_planner_node Smooth Path"]
-        GNSS["gnss_waypoint_follower Navigation"]
-        STR["straight_drive_node Constant Speed"]
-        LAT["lateral_avoidance_node Obstacle Steer"]
-        ARBAUTO["control_arbitrator_node Priority MUX"]
-    end
-
-    subgraph ALGOS["Layer 5 - Algorithm Plugins Python"]
-        API["pix_algorithm_api BaseAlgorithmInterface"]
-        LF["lane_following"]
-        OT["object_tracking"]
-        YA["yolo_person_avoidance"]
-    end
-
-    VCU -->|CAN frames| CAN
-    CAN -->|SocketCAN| DRIVER
-    DRIVER --- CODEC
-    CODEC --- IFACE
-    IFACE -->|vehicle_status| CORE
-    SAFE -->|control_cmd| IFACE
-
-    ARB -->|raw_control_cmd| SAFE
-    SAFE -->|control_cmd| IFACE
-    STATE --- ARB
-    CFG --- ARB
-    DIAG --- STATE
-    LOG --- IFACE
-
-    ARBAUTO -->|raw_control_cmd| ARB
-    API --- PERC
-    API --- AEB
-    API --- MPC
-    API --- GNSS
-    API --- STR
-    API --- LAT
-    LF -->|commands| ARB
-    OT -->|commands| ARB
-    YA -->|commands| ARB
-```
-
----
-
-## Data Flow
-
-The complete command pipeline from algorithm to wheel:
-
-```mermaid
-sequenceDiagram
-    participant A as Algorithm Node
-    participant ARB as pix_command_manager
-    participant SAFE as pix_safety_manager
-    participant IFACE as pix_vehicle_interface_cpp
-    participant VCU as PIXKIT VCU
-
-    A->>ARB: /pix_autonomy/algo_cmd PixControlCmd
-    Note over ARB: Priority AEB then Joy then MPC then GNSS then Straight
-    ARB->>SAFE: /pix/raw_control_cmd PixControlCmd
-    Note over SAFE: Clamp steering speed brake. Watchdog 300ms timeout fires E-stop
-    SAFE->>IFACE: /pix/control_cmd PixControlCmd
-    Note over IFACE: 50 Hz encode loop pure CAN encoder no arbitration
-    IFACE->>VCU: CAN frame can4 500kbps
-    VCU-->>IFACE: CAN frame vehicle status
-    IFACE-->>A: /pix/vehicle_status PixVehicleStatus
-```
-
----
-
-## Package Reference
-
-### C++ Packages
-
-| Package | Role | Key Files |
-|---|---|---|
-| `pix_can_codec` | Zero-allocation byte-level CAN encoder/decoder | `can_codec.hpp`, `encoder.cpp`, `decoder.cpp` |
-| `pix_can_driver` | Multi-threaded SocketCAN ↔ ROS 2 bridge | `pix_can_driver.cpp` |
-| `pix_vehicle_interface_cpp` | 50 Hz CAN command loop — pure encoder, no arbitration | `pix_vehicle_interface.cpp` |
-| `pix_vehicle_msgs` | Custom message types (`PixControlCmd`, `PixVehicleStatus`, `PixSystemState`) | `msg/` |
-| `pix_control_msgs` | Standard control messages (`Control`, `GearCommand`, `ControlModeReport`, …) | `msg/`, `srv/` |
-
-### Python Packages
-
-| Package | Role | Key Node(s) |
-|---|---|---|
-| `pix_command_manager` | Priority-based command multiplexer; accepts both legacy and standard messages | `command_arbitrator.py` |
-| `pix_safety_manager` | Steering/speed clamping, rate-limiting, watchdog, E-stop logic | `safety_manager_node.py`, `safety_clamp_logic.py` |
-| `pix_algorithm_api` | Base class (`BaseAlgorithmInterface`) for all algorithm nodes | `base_algorithm_interface.py` |
-| `pix_autonomy` | **High-level autonomy stack** — Sense→Plan→Act nodes | `aeb_node.py`, `yolo_perception_node.py`, `gnss_waypoint_follower.py`, `mpc_planner_node.py`, `lateral_avoidance_node.py`, `straight_drive_node.py`, `control_arbitrator_node.py` |
-| `pix_config_manager` | YAML profile loader (hardware / simulation / tuning) | `config_manager_node.py` |
-| `pix_state_manager` | System FSM: STANDBY → AUTONOMOUS → FAULT | `system_state_manager_node.py` |
-| `pix_diagnostics` | Aggregates health checks to `/diagnostics` | `diagnostics_node.py` |
-| `pix_logger` | CSV telemetry logging of vehicle state | `logger_node.py` |
-| `pix_simulator` | Kinematic vehicle simulator for HIL testing | `vehicle_simulator.py` |
-| `lane_following` | Camera-based lane-keep algorithm (algorithm plugin) | `lane_following_node.py` |
-| `object_tracking` | Multi-object tracking algorithm (algorithm plugin) | `object_tracking_node.py` |
-| `yolo_person_avoidance` | YOLO-based person avoidance algorithm (algorithm plugin) | `yolo_avoidance_node.py` |
-
----
-
-## Repository Layout
-
-```
-pix_control_framework/
-├── launch/
-│   ├── hw_framework.launch.py        # Core CAN interface (hardware)
-│   ├── sim_framework.launch.py       # Simulation stack
-│   ├── sim_config.rviz               # RViz config for simulation
-│   └── algorithms/
-│       ├── lane_following.launch.py
-│       └── yolo_avoidance.launch.py
-├── scripts/
-│   ├── actuator_test.py              # Manual actuator test tool
-│   └── pix_framework_watcher_node.py # Health watcher
-├── src/
-│   ├── pix_can_codec/                # C++: CAN encode/decode library
-│   ├── pix_can_driver/               # C++: SocketCAN driver
-│   ├── pix_vehicle_interface_cpp/    # C++: 50 Hz CAN command loop
-│   ├── pix_vehicle_msgs/             # Custom ROS 2 message types
-│   ├── pix_control_msgs/             # Standard control message types
-│   ├── pix_command_manager/          # Python: Priority arbitrator
-│   ├── pix_safety_manager/           # Python: Safety clamping
-│   ├── pix_algorithm_api/            # Python: Algorithm base class
-│   ├── pix_autonomy/                 # Python: Full autonomy stack (v18)
-│   │   ├── pix_autonomy/
-│   │   │   ├── aeb_node.py
-│   │   │   ├── yolo_perception_node.py
-│   │   │   ├── gnss_waypoint_follower.py
-│   │   │   ├── mpc_planner_node.py
-│   │   │   ├── lateral_avoidance_node.py
-│   │   │   ├── straight_drive_node.py
-│   │   │   └── control_arbitrator_node.py
-│   │   ├── launch/autonomy_test.launch.py
-│   │   └── config/autonomy_params.yaml
-│   ├── pix_config_manager/           # Python: Profile loader
-│   ├── pix_state_manager/            # Python: System FSM
-│   ├── pix_diagnostics/              # Python: Diagnostics aggregator
-│   ├── pix_logger/                   # Python: CSV telemetry
-│   ├── pix_simulator/                # Python: Kinematic simulator
-│   └── algorithms/
-│       ├── lane_following/
-│       ├── object_tracking/
-│       └── yolo_person_avoidance/
-├── yolov8n.pt                        # YOLO v8 Nano weights
-├── update_maintainers.py
-├── .gitignore
-├── LICENSE
-├── README.md
-├── pix_autonomy_architecture.md      # Sense→Plan→Act architecture guide
-└── PIX_AEB_STRAIGHT_TEST_MANUAL.md  # AEB + straight-line safety manual
-```
-
----
-
-## Prerequisites
-
-| Dependency | Version | Install |
-|---|---|---|
-| Ubuntu | 22.04 LTS | — |
-| ROS 2 | Humble Hawksbill | [ros.org](https://docs.ros.org/en/humble/Installation.html) |
-| Python | ≥ 3.10 | `sudo apt install python3` |
-| colcon | latest | `sudo apt install python3-colcon-common-extensions` |
-| OpenCV | ≥ 4.5 | `sudo apt install python3-opencv` |
-| Ultralytics YOLO | ≥ 8.0 | `pip install ultralytics` |
-| cv_bridge | Humble | `sudo apt install ros-humble-cv-bridge` |
-| can-utils | latest | `sudo apt install can-utils` |
-
----
-
-## Build Instructions
+## Quick Start (2 terminals)
 
 ```bash
-# 1. Clone the repository
-git clone git@github.com:manish-gupta-in/pix_control_framework.git
-cd pix_control_framework
-
-# 2. Source ROS 2
+# ─── Terminal 1: Core hardware pipeline ───────────────────────────────────
 source /opt/ros/humble/setup.bash
-
-# 3. Build all packages
-colcon build --symlink-install
-
-# 4. Source the workspace
-source install/setup.bash
-```
-
-### Build a specific package
-
-```bash
-colcon build --packages-select pix_autonomy --symlink-install
-source install/setup.bash
-```
-
-### Clean build
-
-```bash
-rm -rf build/ install/ log/
-colcon build --symlink-install
-```
-
----
-
-## Hardware Setup
-
-### CAN Interface
-
-```bash
-# Bring up the CAN interface (run once after boot)
-sudo ip link set can4 up type can bitrate 500000
-sudo ip link set can4 txqueuelen 1000
-
-# Verify
-candump can4
-```
-
-### VCU Mode
-
-> ⚠ **Critical:** The physical VCU remote-control selector **must be in AUTO position** before issuing any gear or drive commands. In STANDBY mode the VCU ignores all `Gear_EnCtrl` signals.
-
-```bash
-# Verify VCU is in AUTO mode (ModeState = 1)
-candump can4 | grep 505    # Should show: ...20 01
-```
-
----
-
-## Launch Reference
-
-| Launch File | Purpose | Command |
-|---|---|---|
-| `hw_framework.launch.py` | Core CAN interface (hardware) — no algorithms | `ros2 launch launch/hw_framework.launch.py` |
-| `sim_framework.launch.py` | Full simulation stack with RViz | `ros2 launch launch/sim_framework.launch.py` |
-| `algorithms/yolo_avoidance.launch.py` | YOLO person avoidance algorithm | `ros2 launch launch/algorithms/yolo_avoidance.launch.py` |
-| `algorithms/lane_following.launch.py` | Lane following algorithm | `ros2 launch launch/algorithms/lane_following.launch.py` |
-| `autonomy_test.launch.py` | Full autonomy test (AEB + YOLO + Straight Drive) | `ros2 launch src/pix_autonomy/launch/autonomy_test.launch.py` |
-
-### Typical Hardware Workflow
-
-```bash
-# Terminal 1 — Core framework
+cd ~/pix_control_framework
+colcon build --symlink-install && source install/setup.bash
 ros2 launch launch/hw_framework.launch.py
 
-# Terminal 2 — Full autonomy test
-ros2 launch src/pix_autonomy/launch/autonomy_test.launch.py
+# ─── Terminal 2: Autonomy stack ────────────────────────────────────────────
+source /opt/ros/humble/setup.bash && source install/setup.bash
+ros2 launch pix_autonomy autonomy_test.launch.py
 ```
+
+> ⚠ **Before launching:** VCU physical switch must be in **AUTO** and e-stop must be **disengaged**.  
+> ⚠ **Only ever run ONE arbitrator.** It starts automatically in Terminal 1.
 
 ---
 
-## Running Tests
+## Documents
 
-```bash
-# Run all tests
-colcon test --event-handlers console_direct+
-colcon test-result --verbose
-
-# Run tests for a specific package
-colcon test --packages-select pix_safety_manager
-colcon test-result --test-result-base build/pix_safety_manager --verbose
-```
-
-### Test Coverage by Package
-
-| Package | Test File | What It Covers |
-|---|---|---|
-| `pix_state_manager` | `test_state_machine.py` | FSM transitions (STANDBY↔AUTO↔FAULT) |
-| `pix_safety_manager` | `test_safety_logic.py`, `test_safety_and_arbitration.py` | Clamping, rate-limits, watchdog, E-stop |
-| `pix_command_manager` | `test_arbitration_logic.py` | Priority ordering, command preemption |
-| `pix_simulator` | `test_kinematics.py` | Kinematic model accuracy |
-| `pix_diagnostics` | `test_diagnostics_logic.py` | Health check aggregation |
-| `pix_logger` | `test_logger_config.py` | Logger configuration parsing |
-| `pix_can_codec` | `test_can_codec.cpp` (GTest) | CAN frame encode/decode round-trip |
-| `pix_autonomy` | `test_imports.py` | Package import sanity |
-
----
+| File | Purpose |
+|---|---|
+| `README.md` (this file) | Quick start, architecture, test procedures |
+| `PIX_FRAMEWORK_V15_USAGE.md` | Full API reference, field units, priority system, how to write an algorithm |
+| `PIX_AEB_STRAIGHT_TEST_MANUAL.md` | Step-by-step field test manual (straight drive + AEB) |
+| `pix_autonomy_architecture.md` | Architecture diagram, complete algorithm example node |
+| `scripts/actuator_test.py` | Individual actuator tests (steering / brake / throttle / gear) |
 
 ## Version History
 
-| Version | Date | Highlights |
+| Version | Date | Description |
 |---|---|---|
-| **v18.0** | 2026-09 | `pix_autonomy/setup.py`: added missing `control_arbitrator_node` entry point; `test_imports.py` import coverage extended. |
-| v17.0 | 2026-09 | `straight_drive_node`: park brake release command (`park_en=True, park_target=0`) added on drive start. |
-| v16.0 | 2026-09 | `pix_autonomy` package: AEB, YOLO Perception, GNSS Waypoint Follower, MPC Planner, Lateral Avoidance, Straight Drive, Control Arbitrator. Full Sense→Plan→Act stack. |
-| v15.0 | 2026-08 | Unified command pipeline — single `/pix/raw_control_cmd` topic, dual-message-type arbitrator, watchdog, stale-doc cleanup |
-| v12.0 | 2026-07 | `pix_control_msgs` standard message types, C++ vehicle interface (pure encoder), `pix_can_driver` |
-| v11.0 | 2026-06 | Safety manager rate-limiting and E-stop, `pix_algorithm_api` base class |
-| v10.0 | 2026-05 | Diagnostics aggregator, CSV logger, config profile loader |
-| v9.0 | 2026-04 | `pix_can_codec` C++ library, `pix_vehicle_msgs` |
-| v3.0 | 2026-02 | Algorithm plugin architecture, YOLO avoidance, lane following |
-| v0.1 | 2026-01 | Initial commit — basic CAN interface, Python command bridge |
+| **v19.0** | 2026-09 | Major refactor: `aeb_node` enhanced (min_trigger_speed, min_distance params); `straight_drive_node` WAKE state machine (safe VCU startup); `base_algorithm_interface` expanded API; `control_arbitrator_node.py` removed (arbitration in `pix_command_manager`); `Control.msg`/`GearCommand.msg` removed from `pix_control_msgs`; `command_arbitrator`, `lane_following`, `yolo_avoidance` updated. |
+| v18.0 | 2026-09 | `pix_autonomy/setup.py`: added missing `control_arbitrator_node` entry point; `test_imports.py` import coverage extended. |
 
 ---
 
-## License
+## System Architecture
 
-Proprietary — PIXMOVING / Manish Gupta. All rights reserved.  
-See [LICENSE](LICENSE) for details.
+```
+Algorithm nodes (pix_autonomy)
+  └── publish_control_cmd()
+        → /pix/commands/<name>   (PixControlCmd — degrees, m/s, %)
+               ↓
+  pix_command_manager             Priority order (highest → lowest):
+  [command_arbitrator]            1. COLLISION_AVOIDANCE  → /pix/commands/collision_avoidance
+                                  2. HUMAN_AVOIDANCE      → /pix/commands/human_avoidance
+  Picks freshest top-priority     3. LANE_FOLLOWING       → /pix/commands/lane_following
+  source, publishes winner        4. CRUISE_CONTROL       → /pix/commands/cruise_control
+               ↓                  E-STOP: unconditional override (separate callback)
+        /pix/raw_control_cmd
+               ↓
+  pix_safety_manager              Clamps: steer ±500°, speed 0–5 m/s, accel 0–3 m/s², brake 0–100%
+  [safety_manager]                Watchdog: 300ms timeout → sends safe zero-speed command
+               ↓
+        /pix/control_cmd
+               ↓
+  pix_vehicle_interface_cpp       Pure encoder — 50Hz CAN loop, no arbitration, no clamping
+               ↓
+  pix_can_driver → SocketCAN → VCU (CAN4 @ 500 kbps)
+```
+
+**AEB signal flow:**
+```
+Camera → yolo_perception_node → /perception/obstacles → aeb_node
+                                 [distance, lateral_offset]
+aeb_node: if distance/speed < TTC threshold:
+  publish_control_cmd(brake_en=True, brake_target=100%, emergency_stop=True)
+  → /pix/commands/collision_avoidance  (Priority 1 — overrides straight_drive)
+```
+
+---
+
+## Individual Actuator Tests
+
+Run **Terminal 1** (`hw_framework.launch.py`) first, then in a new terminal:
+
+```bash
+source /opt/ros/humble/setup.bash && source install/setup.bash
+
+# Test steering (vehicle does NOT move)
+python3 scripts/actuator_test.py --mode hw --test steering
+
+# Test braking (vehicle does NOT move)
+python3 scripts/actuator_test.py --mode hw --test brake
+
+# Test throttle — ⚠ VEHICLE WILL MOVE — ensure 15m clear space
+python3 scripts/actuator_test.py --mode hw --test throttle
+
+# Test gear cycling
+python3 scripts/actuator_test.py --mode hw --test gear
+
+# Test parking brake
+python3 scripts/actuator_test.py --mode hw --test park
+
+# Run ALL tests in sequence (interactive)
+python3 scripts/actuator_test.py --mode hw --test full
+```
+
+**What to verify per test:**
+| Test | `ros2 topic echo /pix/raw_control_cmd` | `candump can4` |
+|---|---|---|
+| steering | `steer_en: true`, `steer_target: ±200.0` | 0x102 frames at 50 Hz |
+| brake | `brake_en: true`, `brake_target: 30.0` | 0x101 frames |
+| throttle | `drive_en: true`, `speed_target: 1.5` | 0x100 frames |
+| gear | `gear_en: true`, `gear_target: 4` | 0x103 frames |
+
+---
+
+## AEB + Straight Drive Test Sequence
+
+1. **Pre-flight:** VCU in AUTO, e-stop green, CAN up (`candump can4 -n5` shows 0x5xx frames)
+2. **Terminal 1:** `ros2 launch launch/hw_framework.launch.py`
+3. **Terminal 2:** `ros2 launch pix_autonomy autonomy_test.launch.py`
+4. **Verify driving:** `ros2 topic echo /pix/raw_control_cmd` → `drive_en: true, speed_target: 1.5`
+5. **Check arbitrator:** `ros2 node list | grep arbitrator` → exactly one: `/command_arbitrator`
+6. **AEB test:** walk in front of camera — terminal 1 logs `AEB ENGAGED!` — vehicle brakes
+7. **AEB clear:** step away — logs `AEB cleared — resuming normal operation` — vehicle drives again
+
+---
+
+## Diagnostic Commands
+
+```bash
+# Is the pipeline alive?
+ros2 topic hz /pix/raw_control_cmd        # should be ~50 Hz
+ros2 topic hz /pix/control_cmd            # should be ~50 Hz
+
+# What is the arbitrator publishing?
+ros2 topic echo /pix/raw_control_cmd      # check drive_en, speed_target, gear_target
+
+# Is there exactly one arbitrator? (Must be 1 — never 2)
+ros2 node list | grep arbitrator
+
+# Is YOLO publishing obstacles?
+ros2 topic echo /perception/obstacles     # data: [distance, lateral_offset]
+
+# CAN frame verification
+candump can4 | grep " 100"               # throttle commands
+candump can4 | grep " 102"               # steering commands
+candump can4 | grep " 505"               # VCU mode (byte[4]=0x01 = AUTO)
+```
+
+---
+
+## Writing a New Algorithm (30-second guide)
+
+**Step 1:** Create your node inheriting `BaseAlgorithmInterface`:
+```python
+from pix_algorithm_api.base_algorithm_interface import BaseAlgorithmInterface
+
+class MyNode(BaseAlgorithmInterface):
+    def __init__(self):
+        super().__init__('my_node', '/pix/commands/cruise_control')  # must match YAML
+        self.timer = self.create_timer(0.02, self.loop)
+
+    def loop(self):
+        self.publish_control_cmd(
+            drive_en=True, speed_target=2.0, accel_target=1.0,
+            steer_en=True, steer_target=0.0, steer_speed=150.0,
+            gear_en=True,  gear_target=4,   # 4 = DRIVE
+            park_en=True,  park_target=0,   # 0 = RELEASE
+        )
+```
+
+**Step 2:** Register in `src/pix_command_manager/config/arbitrator_params.yaml` — add name + topic in priority order.
+
+**Step 3:** `colcon build --symlink-install` — done.
+
+---
+
+## Field Units Reference
+
+| Field | Unit | Max (safety manager) |
+|---|---|---|
+| `steer_target` | degrees (wheel) | ±500° |
+| `steer_speed` | deg/s | 250°/s |
+| `speed_target` | m/s | 5.0 m/s |
+| `accel_target` | m/s² | 3.0 m/s² |
+| `brake_target` | % | 100% |
+| `gear_target` | int | 1=Park, 2=Rev, 3=Neutral, **4=Drive** |
+| `park_target` | int | 0=Release, 1=Engage |
+
+---
+
+## CAN Frame Map
+
+| CAN ID | Direction | Content |
+|--------|-----------|---------|
+| 0x100 | PC→VCU | Throttle command |
+| 0x101 | PC→VCU | Brake command |
+| 0x102 | PC→VCU | Steering command |
+| 0x103 | PC→VCU | Gear command |
+| 0x104 | PC→VCU | Park command |
+| 0x500 | VCU→PC | Throttle report |
+| 0x502 | VCU→PC | Steering report |
+| 0x503 | VCU→PC | Gear report |
+| 0x505 | VCU→PC | VCU mode (byte[4]=0x01 = AUTO) |

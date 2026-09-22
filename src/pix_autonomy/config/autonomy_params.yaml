@@ -11,7 +11,9 @@ straight_drive_planner:
 
 aeb_node:
   ros__parameters:
-    ttc_threshold: 2.0  # Time to collision in seconds. Higher = brakes earlier.
+    ttc_threshold: 2.0       # Time to collision (seconds) before AEB engages
+    min_trigger_speed: 0.3   # m/s — AEB won't engage based on TTC below this speed
+    min_distance: 2.5        # meters — trigger if closer than this even at standstill
 
 lateral_avoidance_planner:
   ros__parameters:

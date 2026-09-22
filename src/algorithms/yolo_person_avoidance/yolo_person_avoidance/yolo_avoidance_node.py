@@ -10,7 +10,6 @@ import os
 import cv2
 import numpy as np
 import time
-import math
 from collections import deque
 
 try:
@@ -239,29 +238,22 @@ class YoloPersonAvoidanceNode(BaseAlgorithmInterface):
         # Run avoidance logic
         steer_cmd, dbg = self.ctrl.update(detections, fw, fh)
         
-        # Convert degrees to radians for standard path
-        steer_cmd_rad = steer_cmd * math.pi / 180.0
-        steer_rate_rad = self.speed_dps * math.pi / 180.0
-
         # Publish control commands via Base class helper
         if self.steer_only_mode:
             # STATIONARY TEST: steer only, no drive/gear/park change
-            # Vehicle stays in current gear/park state — safe for on-vehicle bench test
-            self.publish_standard_control(
-                steering_tire_angle=steer_cmd_rad,
-                steering_tire_rotation_rate=steer_rate_rad,
-                velocity=0.0,
-                acceleration=0.0,
-                gear_command=None
+            self.publish_control_cmd(
+                steer_en=True, steer_target=steer_cmd, steer_speed=self.speed_dps,
+                drive_en=False, speed_target=0.0,  accel_target=0.0,
+                brake_en=False, brake_target=0.0,
             )
         else:
             # FULL MODE: steer + forward motion
-            self.publish_standard_control(
-                steering_tire_angle=steer_cmd_rad,
-                steering_tire_rotation_rate=steer_rate_rad,
-                velocity=self.target_speed,
-                acceleration=1.0,
-                gear_command=2 # 2=DRIVE
+            self.publish_control_cmd(
+                steer_en=True,  steer_target=steer_cmd,          steer_speed=self.speed_dps,
+                drive_en=True,  speed_target=self.target_speed,  accel_target=1.0,
+                brake_en=False, brake_target=0.0,
+                gear_en=True,   gear_target=4,   # 4 = DRIVE
+                park_en=True,   park_target=0,   # 0 = RELEASE
             )
         
         # Display overlay if enabled

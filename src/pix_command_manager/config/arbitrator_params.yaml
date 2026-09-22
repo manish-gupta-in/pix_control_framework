@@ -2,20 +2,19 @@
   ros__parameters:
 
     # ── Arbitration Timeout ──────────────────────────────────────────────────
-    active_timeout: 0.4             # seconds
+    active_timeout: 0.4             # seconds — source must publish within this window
 
-    # ── Priority Sources ─────────────────────────────────────────────────────
-    # EMERGENCY_STOP is an unconditional override handled in code, so it is 
-    # not in this list. The list below is from highest to lowest priority.
+    # ── Priority Sources (highest → lowest) ──────────────────────────────────
+    # EMERGENCY_STOP is an unconditional override handled in code; it is NOT listed here.
+    # All sources use PixControlCmd (pix_vehicle_msgs) — degrees + percent units.
+    # To add a new algorithm: append a name+topic pair and publish to that topic.
     priority_sources:
-      - "STANDARD_CONTROL"
       - "COLLISION_AVOIDANCE"
       - "HUMAN_AVOIDANCE"
       - "LANE_FOLLOWING"
       - "CRUISE_CONTROL"
 
     priority_topics:
-      - "/pix_framework/control_cmd"
       - "/pix/commands/collision_avoidance"
       - "/pix/commands/human_avoidance"
       - "/pix/commands/lane_following"

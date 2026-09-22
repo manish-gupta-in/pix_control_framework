@@ -11,8 +11,6 @@ find_package(builtin_interfaces REQUIRED)
 find_package(std_msgs REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
-  "msg/Control.msg"
-  "msg/GearCommand.msg"
   "msg/GearReport.msg"
   "msg/TurnIndicatorsCommand.msg"
   "msg/TurnIndicatorsReport.msg"

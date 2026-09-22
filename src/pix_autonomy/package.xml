@@ -9,7 +9,6 @@
 
   <depend>rclpy</depend>
   <depend>pix_vehicle_msgs</depend>
-  <depend>pix_control_msgs</depend>
   <depend>pix_algorithm_api</depend>
   <depend>std_msgs</depend>
 

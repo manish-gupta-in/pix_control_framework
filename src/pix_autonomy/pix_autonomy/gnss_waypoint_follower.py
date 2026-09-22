@@ -3,7 +3,6 @@ import rclpy
 from rclpy.node import Node
 import math
 import os
-from pix_control_msgs.msg import Control, GearCommand
 from pix_algorithm_api.base_algorithm_interface import BaseAlgorithmInterface
 
 class GNSSWaypointFollower(BaseAlgorithmInterface):

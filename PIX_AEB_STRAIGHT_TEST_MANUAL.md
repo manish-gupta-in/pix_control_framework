@@ -1,233 +1,178 @@
-# PIX AEB & Straight-Line Test Manual
+# PIX AEB & Straight Line Test Manual (v19)
 
-> **Version:** v18.0 | **Vehicle:** PIXKIT DTV | **Framework:** PIX Control Framework v18  
-> **Procedure:** 50-metre straight-line drive with Autonomous Emergency Braking active
+This manual provides step-by-step instructions for performing a **50-meter straight line test**
+with the **Autonomous Emergency Braking (AEB)** system active.
 
----
+In this test, the vehicle drives straight forward at a constant speed. If a person steps into the
+camera view, the AEB node publishes a full-brake override command to the **single real arbitrator**
+(`pix_command_manager`), which immediately pre-empts the straight-drive command, and the vehicle
+brakes to a full stop.
 
-## ⚠ Safety Statement
-
-This procedure involves a live vehicle moving under autonomous control. **Do not proceed unless all safety prerequisites below are satisfied.** The test operator retains full responsibility for safe execution. The hardware E-Stop must be reachable and operational at all times.
-
----
-
-## Table of Contents
-
-1. [Safety Prerequisites](#1-safety-prerequisites)
-2. [Hardware Setup](#2-hardware-setup)
-3. [Software Setup](#3-software-setup)
-4. [Test Procedure](#4-test-procedure)
-5. [Parameter Reference](#5-parameter-reference)
-6. [Expected Behaviour Checklist](#6-expected-behaviour-checklist)
-7. [How to Stop Safely](#7-how-to-stop-safely)
-8. [Troubleshooting](#8-troubleshooting)
+> ⚠ **IMPORTANT — Single Arbitrator Rule**
+> There is exactly **one** arbitrator in this system: `pix_command_manager/command_arbitrator`,
+> started automatically by `launch/hw_framework.launch.py`.
+> **Do NOT run `control_arbitrator_node` or any second arbitrator node.** If two arbitrators
+> publish to `/pix/raw_control_cmd` simultaneously, the vehicle will randomly flip between
+> STANDBY and AUTONOMOUS mode and will not actuate reliably.
 
 ---
 
 ## 1. Safety Prerequisites
 
-Verify every item before powering the vehicle:
-
-| # | Check | Requirement |
-|:---:|---|---|
-| 1 | **Test area** | Minimum 50 m of flat, clear, obstacle-free ground ahead of the vehicle. Side clearance ≥ 3 m. |
-| 2 | **E-Stop button** | Hardware E-Stop (on vehicle or RC controller) is within reach of the operator at all times. |
-| 3 | **VCU mode** | Physical VCU remote-control selector is set to **AUTO**. |
-| 4 | **CAN interface** | `can4` is up at 500 kbps (verified with `candump can4`). |
-| 5 | **Workspace built** | `colcon build` completed without errors; `install/setup.bash` is sourced. |
-| 6 | **Camera** | USB / GigE camera is connected and publishing on `/camera/right/image`. |
-| 7 | **YOLO weights** | `yolov8n.pt` is present in the workspace root. |
-| 8 | **Test personnel** | A second person is present to trigger E-Stop if needed. Never perform this test alone. |
-
-> ⚠ **Do not skip any item above.** A missed check is a safety incident waiting to happen.
+- ⚠ Ensure you have at least **50 metres of completely clear, flat ground** ahead of the vehicle.
+- ⚠ Ensure the **Hardware E-Stop button** (on the vehicle or RC controller) is within reach at all
+  times.
+- ⚠ Ensure the VCU physical switch is set to **AUTO** (not STANDBY) before launching.
 
 ---
 
-## 2. Hardware Setup
+## 2. Setting Up the Vehicle
 
-### 2.1 CAN Interface
-
-Run once after each boot:
-
-```bash
-sudo ip link set can4 up type can bitrate 500000
-sudo ip link set can4 txqueuelen 1000
-```
-
-Verify:
-
-```bash
-candump can4
-# You should see periodic CAN frames from the VCU
-```
-
-### 2.2 VCU Mode Verification
-
-```bash
-# Confirm VCU is in AUTO mode: ModeState byte = 0x01
-candump can4 | grep 505
-# Expected output example: can4  505   [8]  00 20 01 00 00 00 00 00
-#                                           ^^^^ ModeState = 1 (AUTO)
-```
-
-If ModeState shows `03` the VCU is in STANDBY — flip the physical selector to AUTO.
+1. Unzip `pix_control_framework_v18.zip` on the vehicle computer.
+2. Build the workspace (only needs to be done once):
+   ```bash
+   cd pix_control_framework
+   source /opt/ros/humble/setup.bash
+   colcon build --symlink-install
+   source install/setup.bash
+   ```
+3. Bring up the CAN interface:
+   ```bash
+   sudo ip link set can4 up type can bitrate 500000
+   sudo ip link set can4 txqueuelen 1000
+   ```
+4. Verify VCU frames are coming in:
+   ```bash
+   candump can4 -n 10
+   # You should see frames on IDs 0x500–0x512
+   ```
 
 ---
 
-## 3. Software Setup
+## 3. Running the Test — Exactly Two Terminals
 
-### 3.1 Clone & Build (first time only)
-
+In every terminal, source the workspace first:
 ```bash
-git clone git@github.com:manish-gupta-in/pix_control_framework.git
-cd pix_control_framework
-source /opt/ros/humble/setup.bash
-colcon build --symlink-install
-```
-
-### 3.2 Source the Workspace
-
-Run this in **every new terminal** before any `ros2` command:
-
-```bash
-source /opt/ros/humble/setup.bash
+cd ~/pix_control_framework
 source install/setup.bash
 ```
 
----
-
-## 4. Test Procedure
-
-The test requires **two terminals**. Source the workspace in each before proceeding.
-
----
-
-### Terminal 1 — Core Hardware Framework
-
-Brings up the CAN driver, Safety Manager, State Manager, and Diagnostics. **Must be running before Terminal 2.**
+### Terminal 1: Core Framework (Hardware Interface + Arbitrator)
 
 ```bash
 ros2 launch launch/hw_framework.launch.py
 ```
 
-**✅ Success indicators:**
-- `[pix_can_driver]` logs: `CAN interface can4 opened`
-- `[pix_safety_manager]` logs: `Safety Manager initialised`
-- `[system_state_manager]` logs: `State: STANDBY`
-- No `ERROR` or `FATAL` messages in the first 10 seconds
+This starts:
+- `pix_can_driver` — SocketCAN bridge
+- `pix_vehicle_interface_cpp` — 50 Hz CAN encoder
+- **`command_arbitrator`** — the single priority MUX
+- `safety_manager` — hard-clamps and watchdog
+- `system_state_manager`, `diagnostics_node`, `logger_node`, `config_manager`
 
----
+Verify: you see CAN traffic and no `ERROR` messages. The vehicle should be in STANDBY.
 
-### Terminal 2 — Autonomy Stack
-
-Launches the complete autonomy test in a single command:
-- `yolo_perception_node` — person detection
-- `aeb_node` — emergency braking
-- `straight_drive_node` — constant forward drive
-- `control_arbitrator_node` — command priority MUX
+### Terminal 2: Autonomy Algorithms (YOLO + AEB + Straight Drive)
 
 ```bash
-ros2 launch src/pix_autonomy/launch/autonomy_test.launch.py
+ros2 launch pix_autonomy autonomy_test.launch.py
 ```
 
-> ⚠ **WARNING: The vehicle will begin moving forward as soon as this launch completes.**  
-> Ensure the test area is clear and your hand is near the E-Stop before running this command.
+This starts:
+- `yolo_perception_node` — camera + YOLO inference → `/perception/obstacles`
+- `aeb_node` — TTC watchdog → `/pix/commands/collision_avoidance` (Priority 2)
+- `straight_drive_node` — constant speed forward → `/pix/commands/lane_following` (Priority 5)
 
-**✅ Success indicators:**
-- `[yolo_perception_node]` logs: `YOLO model loaded from yolov8n.pt`
-- `[straight_drive_node]` logs: `Publishing drive command at X.X m/s`
-- `[control_arbitrator_node]` logs: `Arbitrator running at 50 Hz`
-- Vehicle begins moving forward
+> ⚠ **The vehicle will start moving forward as soon as Terminal 2 launches.**
+> Ensure the area is clear before running this command.
 
 ---
 
-## 5. Parameter Reference
+## 4. How to Tune Parameters (Speed, AEB Distance, etc.)
 
-All parameters are in `src/pix_autonomy/config/autonomy_params.yaml`. **No rebuild required** — edit and re-run the launch command.
+You do **NOT** need to rebuild the workspace to change speeds or AEB settings. Edit:
 
-| Parameter | Node | Default | Description |
-|---|---|---|---|
-| `speed` | `straight_drive_node` | `1.5` m/s | Forward test speed |
-| `ttc_threshold` | `aeb_node` | `2.0` s | Brake when TTC falls below this value. Increase to brake earlier. |
-| `model_path` | `yolo_perception_node` | `yolov8n.pt` | Path to YOLO weights file |
-| `camera_topic` | `yolo_perception_node` | `/camera/right/image` | Camera topic to subscribe to |
+```
+src/pix_autonomy/config/autonomy_params.yaml
+```
 
-### Runtime Override (no file edit)
+Relevant settings:
+- **`speed: 1.5`** (under `straight_drive_planner`) — constant driving speed in m/s.
+- **`ttc_threshold: 2.0`** (under `aeb_node`) — seconds; increase to brake earlier, decrease to
+  brake later.
 
+After saving, re-run Terminal 2 to pick up the new parameters.
+
+---
+
+## 5. The Test Procedure
+
+1. The vehicle drives straight at the configured speed (default `1.5 m/s`).
+2. Have a person safely walk into the camera frame from the side (at least 5–10 m ahead).
+3. **Expected behaviour:**
+   - `yolo_perception_node` detects the person and publishes `[distance, offset]` on
+     `/perception/obstacles`.
+   - `aeb_node` calculates TTC. If TTC < 2.0 s, it publishes a full-brake command to
+     `/pix/commands/collision_avoidance`.
+   - The **real arbitrator** (`pix_command_manager`) pre-empts `lane_following` with
+     `collision_avoidance` (higher priority) and outputs the brake command to
+     `/pix/raw_control_cmd`.
+   - `safety_manager` passes it through to `/pix/control_cmd` → VCU.
+   - The vehicle brakes immediately. The Terminal 1 log prints:
+     ```
+     [WARN] PREEMPTION EVENT: [LANE_FOLLOWING] overridden by [COLLISION_AVOIDANCE]
+     ```
+   - Terminal 2 prints: `[ERROR] AEB ENGAGED! TTC: x.xxs, Dist: y.yym`
+
+4. Once the person clears the frame, `aeb_node` stops publishing. After the `active_timeout`
+   (0.4 s) the arbitrator falls back to `lane_following` and the vehicle resumes driving.
+
+---
+
+## 6. If the Vehicle Doesn't Move — Troubleshooting
+
+Work through these checks in order:
+
+### Check 1: Is the arbitrator outputting commands?
 ```bash
-# Test at 2.5 m/s with tighter AEB (1.5 s TTC)
-ros2 launch src/pix_autonomy/launch/autonomy_test.launch.py \
-    straight_drive_node:speed:=2.5 \
-    aeb_node:ttc_threshold:=1.5
+ros2 topic echo /pix/raw_control_cmd
 ```
+You should see `drive_en: true` at 50 Hz. If the topic is silent, the arbitrator isn't receiving
+any algorithm commands — check Terminal 2 for errors.
 
-Or run nodes individually:
-
+### Check 2: Is the safety manager passing commands through?
 ```bash
-ros2 run pix_autonomy straight_drive_node --ros-args -p speed:=2.5
-ros2 run pix_autonomy aeb_node --ros-args -p ttc_threshold:=3.0
+ros2 topic echo /pix/control_cmd
 ```
+If `/pix/raw_control_cmd` is alive but `/pix/control_cmd` is not, the safety manager has triggered
+its watchdog or E-stop. Check Terminal 1 for `[WARN] Watchdog` messages.
+
+### Check 3: Is the VCU receiving CAN frames?
+```bash
+candump can4 | grep 100
+```
+You should see CAN frames on `0x100` (throttle command) at ~50 Hz. If not, the vehicle interface
+node has a CAN socket issue.
+
+### Check 4: Is the VCU in AUTO mode?
+```bash
+candump can4 | grep 505
+```
+Byte[4] must be `01` (Auto). `03` means STANDBY — the VCU will ignore all gear/throttle commands.
+- Disengage the e-stop (green LED on VCU panel).
+- Set the **physical remote-control switch on the VCU panel to AUTO**.
+
+### Check 5: Are two arbitrators running?
+```bash
+ros2 node list | grep arbitrator
+```
+You should see exactly **one** node: `/command_arbitrator`.  
+If you see a second node (e.g. `/control_arbitrator`), kill it immediately — it is the deleted
+duplicate and will cause random STANDBY/AUTONOMOUS flapping.
 
 ---
 
-## 6. Expected Behaviour Checklist
+## 7. Ending the Test
 
-### Normal Operation (no obstacle)
-
-| Step | What Happens |
-|---|---|
-| 1 | Vehicle drives straight at the configured speed (default 1.5 m/s) |
-| 2 | `straight_drive_node` publishes to `/pix_autonomy/straight_cmd` |
-| 3 | `control_arbitrator_node` selects `straight` (lowest active priority) |
-| 4 | `/pix/control_cmd` flows to `pix_vehicle_interface_cpp` at 50 Hz |
-
-### AEB Trigger (obstacle in camera view)
-
-| Step | What Happens |
-|---|---|
-| 1 | Person walks into the camera frame 5–10 m ahead |
-| 2 | `yolo_perception_node` detects `person` class, publishes distance to `/perception/obstacles` |
-| 3 | `aeb_node` computes: `TTC = distance / speed` |
-| 4 | If `TTC < 2.0 s`: AEB publishes to `/pix_autonomy/aeb_cmd` with `brake_target=100`, `emergency_stop=True` |
-| 5 | `control_arbitrator_node` immediately selects `aeb` (highest priority) |
-| 6 | Vehicle brakes at full capacity and stops |
-| 7 | Terminal shows: `[ERROR] AEB ENGAGED! TTC: X.XXs, Dist: Y.YYm` |
-
-### Recovery After AEB
-
-Once the obstacle clears:
-1. `aeb_node` stops publishing (no detection → no command)
-2. Arbitrator falls back to `straight_drive_node`
-3. Vehicle resumes forward motion
-
----
-
-## 7. How to Stop Safely
-
-### Graceful Stop (software)
-
-Press **Ctrl + C** in Terminal 2 first, then Terminal 1. The Safety Manager's watchdog will detect the command timeout (300 ms) and command a stop automatically.
-
-### Emergency Stop (hardware)
-
-Press the **physical E-Stop button** on the vehicle or RC controller at any time. This immediately disengages the drive and overrides all software commands. The VCU returns to STANDBY mode.
-
-After pressing E-Stop:
-1. Press Ctrl + C in both terminals
-2. Inspect the vehicle and test area before re-engaging
-
----
-
-## 8. Troubleshooting
-
-| Symptom | Likely Cause | Fix |
-|---|---|---|
-| Vehicle does not move | VCU in STANDBY | Set physical VCU selector to **AUTO**; verify `candump` shows ModeState=1 |
-| `YOLO model loaded` not seen | `yolov8n.pt` not found | Confirm file is in workspace root: `ls yolov8n.pt` |
-| `Missing dependencies` error | `ultralytics` / `cv_bridge` not installed | `pip install ultralytics && sudo apt install ros-humble-cv-bridge` |
-| No camera frames | Wrong camera topic | Set `camera_topic` parameter to your actual camera topic |
-| AEB not triggering | Person too far away | Walk closer (within 3 m for 1.5 m/s with 2 s TTC threshold) |
-| AEB triggering too early | `ttc_threshold` too high | Reduce `ttc_threshold` in `autonomy_params.yaml` |
-| CAN errors in Terminal 1 | `can4` interface not up | Run: `sudo ip link set can4 up type can bitrate 500000` |
-| `colcon build` fails | Missing ROS 2 packages | `rosdep install --from-paths src --ignore-src -r -y` |
-| Watchdog E-stop fires | Command loop stalled | Check node is running: `ros2 node list | grep autonomy` |
+Press `Ctrl+C` in both terminals, then press the physical E-Stop button to put the vehicle back
+into STANDBY.
